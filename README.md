@@ -6,7 +6,7 @@
 Project to transform TI92 (1st gen) to a Serial TTL Temrinal
 using an Arduino as multipurposes "Link Cable"
 
-/image:/pictures/d_uno_wiring.jpg/
+![minimal wiring](/pictures/d_uno_wiring.jpg)
 
 (Note that the backup sending code is limited to "1.12" version of the TI-ROM @ this time)
 
