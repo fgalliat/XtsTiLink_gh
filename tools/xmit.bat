@@ -1,0 +1,1 @@
+send ..\devl\test_gcc4ti_1\xtsterm.92p f

@@ -1,0 +1,4 @@
+tools/bin/
+*.o
+sync.sh
+desktop.ini

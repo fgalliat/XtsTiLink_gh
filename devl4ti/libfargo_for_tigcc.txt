@@ -1,0 +1,9 @@
+fargo.a dans le dossier lib de TIGCC.
+C:\Program Files (x86)\TIGCC\Lib
+
+
+C:\Program Files (x86)\TIGCC\Bin\ide.exe
+ -> Xp sp2
+    Admin mode -> allow local path for includes files
+
+http://tichessteamhq.yuku.com/topic/588/New-TIGCC-FAQs#.WSAQY2jyiF4
