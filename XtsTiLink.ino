@@ -163,6 +163,7 @@ void loop() {
           if ( recvNb == 0 && recv[0] == '?' && recv[1] == 'e' ) {
             // X:end\n -> end of serial session
             // break;
+            serPort.println(F("EXIT DUMMY"));
             reboot();
             return;
           } 

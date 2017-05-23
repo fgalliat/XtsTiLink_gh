@@ -50,7 +50,7 @@ Use Return Value=0
 Enable Error Return=0
 Save Screen=1
 [File Editing]
-Open File=C:\vm_mnt\devl\TI_92\Arduino\XtsTiLink\devl\test_gcc4ti_1\main.c
+Open File=C:\vm_mnt\devl\TI_92\Arduino\XtsTiLink\devl4ti\test_gcc4ti_1\main.c
 [Included Files]
 C File 1=main.c
 GNU Assembler File 1=utils_asm.s

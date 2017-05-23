@@ -84,11 +84,11 @@ void _main(void) {
   moa_cls();
 	FontSetSys( F_4x6 );
 	
-	DrawStr(0, 0, "XtsTiTerm 1.0.5", A_NORMAL);
+	DrawStr(0, 0, "XtsTiTerm 1.0.6", A_NORMAL);
 
 	char chs[2] = {0x00, 0x00};
 	int x = 0, y = 8;
-	unsigned char inByte = 0;
+	char inByte[] = {0};
 	char* KEYseq = (char*)"K:";
 	
 	//char* KEYval = (char*)malloc(6);
@@ -110,8 +110,8 @@ void _main(void) {
 	
 	char* beginSession = (char*)"X:?begin\n";
   char* endSession   = (char*)"X:?end\n";
-  beginSession[2] = 0xFF; // not applied !!
-  endSession[2] = 0xFF; // not applied !!
+  //beginSession[2] = 0xFF; // not applied !!
+  //endSession[2] = 0xFF; // not applied !!
 	
 	LIO_SendData(beginSession,2+6+1);
 	
@@ -119,16 +119,18 @@ void _main(void) {
 		
 	  // ,1 -> byte
   	// ,2 -> short ...	
-	 	if ( LIO_RecvData(&inByte,1,2) ) {
+	 	if ( LIO_RecvData(inByte,1,1) ) {
 	 		// failed	
 	 	} else {
-	 		chs[0] = inByte;
-	 		DrawStr(x, y, chs, A_NORMAL);
-	 		x += 4; 
-	 		if ( x >= 240-10 ) { y += (6+1); x=0; }
+	 		chs[0] = inByte[0];
+	 		if ( chs[0] == 13 ) { continue; }
+	 		else if ( chs[0] == 10 ) { y += (6+1); x=0; }
+	 		else {
+		 		DrawStr(x, y, chs, A_NORMAL);
+		 		x += 4; 
+	 			if ( x >= 240-10 ) { y += (6+1); x=0; }
+	 		}
 	 	}
-	
-	
 	
 		//ngetchx();
 		// wait a key press
@@ -147,7 +149,18 @@ void _main(void) {
 			
 			if ( key == KEY_QUIT ) {
 			  break;				
+			} else {
+				// local echo
+			  chs[0] = (char)key;	
+				if ( chs[0] == 10 ) { y += (6+1); x=0; }
+		 		else {
+			 		DrawStr(x, y, chs, A_NORMAL);
+			 		x += 4; 
+		 			if ( x >= 240-10 ) { y += (6+1); x=0; }
+		 		}
 			}
+			
+			
 		}
 	}
 	
