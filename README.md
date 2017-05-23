@@ -19,4 +19,6 @@ using an Arduino as multipurposes "Link Cable"
 
 @Xtase - fgalliat May 2017
 
+![minimal wiring](/pictures/c_screenshot.jpg)
+
 You're allowed to fork / modify / redistribute these contents since you mentionate me ....
