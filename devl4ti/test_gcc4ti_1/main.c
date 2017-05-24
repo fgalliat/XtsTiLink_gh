@@ -84,7 +84,7 @@ void _main(void) {
   moa_cls();
 	FontSetSys( F_4x6 );
 	
-	DrawStr(0, 0, "XtsTiTerm 1.0.6", A_NORMAL);
+	DrawStr(0, 0, "XtsTiTerm 1.0.7", A_NORMAL);
 
 	char chs[2] = {0x00, 0x00};
 	int x = 0, y = 8;
@@ -152,7 +152,7 @@ void _main(void) {
 			} else {
 				// local echo
 			  chs[0] = (char)key;	
-				if ( chs[0] == 10 ) { y += (6+1); x=0; }
+				if ( chs[0] == 13 ) { y += (6+1); x=0; }
 		 		else {
 			 		DrawStr(x, y, chs, A_NORMAL);
 			 		x += 4; 
