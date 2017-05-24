@@ -2,10 +2,6 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import jssc.SerialPort;
-import jssc.SerialPortException;
-import jssc.SerialPortTimeoutException;
-
 /**************************
 * TI 92 link program sender
 * 
@@ -15,13 +11,12 @@ import jssc.SerialPortTimeoutException;
 
 public class Test {
   
-  static SerialPort serialPort = null;
   static BufferedReader kbd = null;
 
   static void halt() {
     try {
       System.out.println("closing");
-      serialPort.closePort();// Close serial port
+      ArduinoMCU.close();// Close serial port
     } catch(Exception ex) {}
     System.exit(0);
   }
@@ -62,17 +57,11 @@ public class Test {
 
 
 public static void mainRecv(String[] args) throws Exception {
-    serialPort = new SerialPort(args != null && args.length > 0 ? args[0] : Arduino.commPort /*"/dev/ttyS0"*/ );
-    try {
-      System.out.println("opening " + serialPort.getPortName());
-      serialPort.openPort();// Open serial port
-
-      System.out.println("setting");
-      serialPort.setParams(SerialPort.BAUDRATE_115200, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-      serialPort.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
+	try {
+    ArduinoMCU.open();
       
-	  // makes arduino reset when openeing port
-	  Thread.sleep(2000);
+	// makes arduino reset when openeing port
+	ArduinoMCU.reset();
 
 _("Enter to start");
 	  BufferedReader kbd = new BufferedReader( new InputStreamReader( System.in ) );
@@ -80,17 +69,15 @@ _("Enter to start");
 
       System.out.println("begin");
 	     
-serialPort.writeBytes( new byte[] { '\\', 'R', 'B' } );
+ArduinoMCU.writeBytes( new byte[] { '\\', 'R', 'B' } );
  _("waits");
-      _( readSerialLine(true) );
+      _( ArduinoMCU.readSerialLine(true) );
 
 FileOutputStream out = new FileOutputStream("../fs/test.92b");
 
 	while(true) {
-		int ch0 = serialPort.readBytes(1)[0];
-		int ch1 = serialPort.readBytes(1)[0];
-		if ( ch0 < 0 ) { ch0 += 256; }
-		if ( ch1 < 0 ) { ch1 += 256; }
+		int ch0 = ArduinoMCU.readOneByte();
+		int ch1 = ArduinoMCU.readOneByte();
 		int len = (ch0*256)+ch1;
 
 
@@ -114,11 +101,8 @@ if (len <= 0 || len > 1028) { break; }
 // 		out.write( rcv, 0, 514 );
 // }
 
-byte[] rcv = new byte[1];
 for(int i=0; i < len; i++) {
-	rcv = serialPort.readBytes(1);
-	int ch = rcv[0];
-	if ( ch < 0 ) { ch+= 256; }
+	int ch = ArduinoMCU.readOneByte();
 	if ( i>=4 ) {
 		out.write(ch);
 	}
@@ -130,7 +114,7 @@ for(int i=0; i < len; i++) {
 // }
 
 	}	  
-_( readSerialLine(true) );
+_( ArduinoMCU.readSerialLine(true) );
 out.flush();
 out.close();
 
@@ -138,15 +122,15 @@ out.close();
       
 	  _("Enter to exit");
 	  
-	  kbd.readLine();;
+	  kbd.readLine();
 
     } catch(Exception ex) {
       ex.printStackTrace();
     } finally {
       System.out.println("closing");
-	  serialPort.closePort();// Close serial port
+	  ArduinoMCU.close();// Close serial port
     }
-	}
+}
 
 
 static int min(int a, int b) { return a < b ? a : b; }
@@ -155,24 +139,18 @@ static int min(int a, int b) { return a < b ? a : b; }
 
   // =================================================================
   public static void mainSendPrgm(boolean autoRun, String fileName, String varName, boolean kbdWait) throws Exception {
-	serialPort = new SerialPort(Arduino.commPort);
     try {
-      System.out.println("opening " + serialPort.getPortName());
-      serialPort.openPort();// Open serial port
-
-      System.out.println("setting");
-      serialPort.setParams(SerialPort.BAUDRATE_115200, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-      serialPort.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
+      ArduinoMCU.open();
       
 	  // proMini doesn't resets @ each serPort.open()
-	   Arduino.resetArduino(serialPort);
+	   ArduinoMCU.reset();
 	//   // makes arduino reset when openeing port
 	//   Thread.sleep(2000);
 
       System.out.println("begin");
 
 	  // flush garbage
-	  _( "G:"+readSerialLine(false) );
+	  _( "G:"+ArduinoMCU.readSerialLine(false) );
       
       File b92 = new File(fileName);
 	  //File b92 = new File("../fs/backup.92B");
@@ -195,25 +173,25 @@ static int min(int a, int b) { return a < b ? a : b; }
 	  kbd = new BufferedReader( new InputStreamReader( System.in ) );
 	  if (kbdWait) kbd.readLine();
 
-      serialPort.writeBytes( new byte[] { '\\', 'S', 'P', (byte)d0, (byte)d1 } );
-	  serialPort.writeBytes( varName.getBytes() );
-	  serialPort.writeByte( (byte)0x00 );
+      ArduinoMCU.writeBytes( new byte[] { '\\', 'S', 'P', (byte)d0, (byte)d1 } );
+	  ArduinoMCU.writeBytes( varName.getBytes() );
+	  ArduinoMCU.writeByte( (byte)0x00 );
 
-	  if (fileName.toLowerCase().endsWith(".92p")) { serialPort.writeByte( (byte)0x01 ); }
-	  else { serialPort.writeByte( (byte)0x00 ); }
+	  if (fileName.toLowerCase().endsWith(".92p")) { ArduinoMCU.writeByte( (byte)0x01 ); }
+	  else { ArduinoMCU.writeByte( (byte)0x00 ); }
 
-	  if (autoRun) { serialPort.writeByte( (byte)0x01 ); }
-	  else { serialPort.writeByte( (byte)0x00 ); }
+	  if (autoRun) { ArduinoMCU.writeByte( (byte)0x01 ); }
+	  else { ArduinoMCU.writeByte( (byte)0x00 ); }
       
       _("waits");
-      _( readSerialLine(true) );
+      _( ArduinoMCU.readSerialLine(true) );
       
       //byte[] data = new byte[blen];
       
 
       	_("Var "+ varName +" to "+ blen +" copy");
 		  // wait for '0x01' ready to send
-      	int ch = serialPort.readBytes(1)[0];
+      	int ch = ArduinoMCU.readOneByte();
       	
       	_( ch );
       	
@@ -227,7 +205,7 @@ static int min(int a, int b) { return a < b ? a : b; }
       		// serialPort.writeBytes( data );
 
 
-			serialPort.writeByte((byte)0x00); // ACK
+			ArduinoMCU.writeByte((byte)0x00); // ACK
 
 			//final int BLOC_LEN = 128;
 			final int BLOC_LEN = 514;
@@ -240,34 +218,31 @@ static int min(int a, int b) { return a < b ? a : b; }
 				int re = fis.read(data, 0, e);
 
 				// own cts
-				ch = serialPort.readBytes(1)[0];
+				ch = ArduinoMCU.readOneByte();
 				if ( ch != 2 ) { _("Oups2"); break; }
 
-      			serialPort.writeBytes( data ); // beware of end of file
+      			ArduinoMCU.writeBytes( data ); // beware of end of file
       		} 
       		_("<-");
 			t1 = System.currentTimeMillis();
 
-			_( readSerialLine(!true) ); // chksum line      
-			_( readSerialLine(!true) ); // var sent
-			_( readSerialLine(!true) );
+			_( ArduinoMCU.readSerialLine(!true) ); // chksum line      
+			_( ArduinoMCU.readSerialLine(!true) ); // var sent
+			_( ArduinoMCU.readSerialLine(!true) );
 
 			_("took "+(t1-t0)+" msec to copy");
 
 			// flush garbage
-	  		_( "G:"+readSerialLine(false) );
+	  		_( "G:"+ArduinoMCU.readSerialLine(false) );
 
       	}	else {
       		_("(EE)");
 			System.out.print( (char)ch );
-      		_( readSerialLine() );
+      		_( ArduinoMCU.readSerialLine() );
       	}
 
       
       fis.close();
-
-	  //SendBackup.resetArduino(serialPort);
-
 
       System.out.println("finish");
       
@@ -279,7 +254,7 @@ static int min(int a, int b) { return a < b ? a : b; }
       ex.printStackTrace();
     } finally {
       System.out.println("closing");
-	  serialPort.closePort();// Close serial port
+	  ArduinoMCU.close();// Close serial port
     }
     
   }
@@ -287,56 +262,6 @@ static int min(int a, int b) { return a < b ? a : b; }
   
   public static void _(Object o) {
 		System.out.println(o);
-	}
-
-	public static void printSerialLine(String str) throws Exception {
-		printSerialLine(str, !true);
-	}
-
-	public static void printSerialLine(String str, boolean consumeEcho) throws Exception {
-		str += "\r\n";
-		serialPort.writeBytes(str.getBytes());
-		if (consumeEcho) {
-			serialPort.readBytes(str.length());
-		}
-	}
-
-	public static String readSerialLine() throws Exception {
-		return readSerialLine(false);
-	}
-
-	public static String readSerialLine(boolean wait1stLineInfinitly) throws Exception {
-		String ret = "";
-		try {
-			// char lastCh = 0x00;
-			while (true) {
-				char ch = 0x00;
-				if (wait1stLineInfinitly) {
-					ch = (char) serialPort.readBytes(1)[0];
-				} else {
-					ch = (char) serialPort.readBytes(1, 1000)[0];
-				}
-				if (ch < 0) {
-					ch += 256;
-				}
-				// may miss the 2nd return char
-
-				// System.out.print(ch);
-
-				// if (ch == 13 || ch == 10) {
-				if (ch == 13) {
-					// break;
-					continue;
-				}
-				if (ch == 10) {
-					break;
-				}
-				ret += ch;
-			}
-		} catch (SerialPortTimeoutException ex) {
-			return null;
-		}
-		return ret;
 	}
 
 	public static void Zzz(long time) {
