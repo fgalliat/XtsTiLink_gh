@@ -1,0 +1,29 @@
+TODO - last update 24/05/2017
+
+https://hackaday.io/project/24826-xtsti92serialterm
+http://xtase.over-blog.com/2017/05/ti-92-serial-terminal-hack.html
+https://github.com/fgalliat/XtsTiLink_gh
+
+ - finish receiveBackup() -> constituate a well formed .92B (patchable by fargo)
+ - ROM restore support is limited to v 1.12 of the TI92 ROM
+
+ - support for spe/combo-chars in XtsTerm ('?' '!', find a key for tab)
+ - support VT100 escape sequence in XtsTerm (for reverse-video mode text, underline text, cursor operations)
+     > http://hackipedia.org/Protocols/Terminal,%20DEC%20VT100/html/VT100%20Escape%20Codes.html
+     > F1 to F4 seems to be sendable
+     > Arrows seems to be also sendable
+
+ - remove "DUMMY" dbugs in order to be directly wired to serial devices
+
+ - FIX 128 bytes bloc max for sending to TI -> (!!!!)
+
+ - add gfx routines & protocol in XtsTerm to provide a GFX mode (240x128 + ?grayscale?)
+
+ - refacto & clean Java code (class Vs Work TODO)
+   > ArduinoMCU -> open / close / reseet -> DONE
+   > TIProgramSender
+   > TIBackupSender
+
+ - make a Serial Console test w/ RPI-0 (remember to protected RPI RX pin) /dev/ttyACM0
+   -> don't forget to protected RX (1KR)
+   
