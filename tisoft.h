@@ -485,6 +485,123 @@ static int ti_sendKeyStroke(int data) {
 }
 
  // ==============================================================
+ // ==============================================================
+
+uint16_t chksum(uint8_t* seg, int len) {
+  uint16_t result = 0x0000;
+  for(int i=4; i < len-2; i++) {
+    result += seg[i];
+  }
+  result &= 0xFFFF;
+  return result;
+}
+
+void sendAbackup(uint16_t dataLen) {
+  // BEWWARE : limited to ROM 1.12 support
+  uint8_t romVer[] = { '1', '.', '1', '2' };
+  
+  // 9A 08 -> 39432 -> dataLen
+  //                                               vvvv  vvvv
+  uint8_t pc2tiMsg[16] = { 0x09, 0x06, 0x0A, 0x00, 0x08, 0x9A, 0x00, 0x00, 0x1D, 0x04, romVer[0], romVer[1], romVer[2], romVer[3], 0x00, 0x00 };
+  uint8_t ti2pcMsg[4];
+  uint8_t intermediate[4] = { 0x09, 0x56, 0x00, 0x00 };
+  uint8_t chkSUM[2] = { 0x00, 0x00 };
+  
+  pc2tiMsg[4] = ( dataLen % 256 );
+  pc2tiMsg[5] = ( dataLen / 256 ) & 0xFF;
+  
+  uint16_t chk = chksum(pc2tiMsg, 16);
+  pc2tiMsg[14] = ( chk % 256 );
+  pc2tiMsg[15] = ( chk / 256 ) & 0xFF;
+  
+  ti_send( pc2tiMsg, 16 );
+  delay(DEFAULT_POST_DELAY);
+  
+  ti_recv(ti2pcMsg, 4);
+  if ( ti2pcMsg[1] != 0x56 ) { outprint("ERR HEAD 1"); DBUG(ti2pcMsg, 4); return; }
+  
+  for(uint16_t i=0; i < dataLen; i += 1024) {
+    int remLen = 1024;
+    if ( i+1024 > dataLen ) { remLen = dataLen-i; }
+  
+  	pc2tiMsg[4] = ( remLen / 256 ) & 0xFF; 
+  	pc2tiMsg[5] = ( remLen % 256 );
+  	chk = chksum(pc2tiMsg, 16);
+    pc2tiMsg[14] = ( chk % 256 );
+    pc2tiMsg[15] = ( chk / 256 ) & 0xFF; 
+    ti_send( pc2tiMsg, 16);
+    delay(DEFAULT_POST_DELAY/2);
+    
+  	ti_recv(ti2pcMsg, 4);
+  	if ( ti2pcMsg[1] != 0x56 ) { outprint(F("ERR BB a ")); outprint( i/1024 ); DBUG(ti2pcMsg, 4); return; }  
+    delay(DEFAULT_POST_DELAY/2);
+
+  	ti_recv(ti2pcMsg, 4);
+    if ( ti2pcMsg[1] == 0x56 ) {
+      ti_recv(ti2pcMsg, 4);
+      delay(DEFAULT_POST_DELAY/2);
+    }
+  	if ( ti2pcMsg[1] != 0x09 ) { outprint(F("ERR BB b ")); outprint( i/1024 ); DBUG(ti2pcMsg, 4); return; }  
+    delay(DEFAULT_POST_DELAY/2);
+
+    intermediate[1] = 0x56;
+    ti_send(intermediate, 4);
+    delay(DEFAULT_POST_DELAY/2);
+    
+    intermediate[1] = 0x15;
+    
+    intermediate[2] = remLen%256;
+    intermediate[3] = remLen/256;
+    ti_send(intermediate, 4);
+    
+    
+    // =======================
+    // SEND 1024 bytes
+    // get chk
+    chk = 0;int e=0;
+    if ( remLen > 512 ) {
+      serPort.write(0x01);
+
+      serPort.readBytes( screen, 512 );
+      for(int i=0; i < 512; i++) { chk += screen[i]; }
+      ti_send( screen, 512 );
+      e+=512;
+      // outprint( 512 ); outprintln(F(" bytes"));
+    }
+    
+    int ll = min( remLen-e, 512 );
+    serPort.write(0x01);
+
+    serPort.readBytes( screen, ll );
+    for(int i=0; i < ll; i++) { chk += screen[i]; }
+    ti_send( screen, ll );
+    
+    // outprint( ll+e ); outprintln(F(" bytes"));
+    // =======================
+    
+    chk &= 0xFFFF;
+    
+    chkSUM[0] = chk % 256;
+    chkSUM[1] = chk / 256;
+    ti_send(chkSUM, 2);
+    delay(DEFAULT_POST_DELAY/2);
+    
+    
+    ti_recv(ti2pcMsg, 4);
+  	if ( ti2pcMsg[1] != 0x56 ) { outprint(F("ERR EB a ")); outprint( i/1024 ); DBUG(ti2pcMsg, 4); return; }  
+    delay(DEFAULT_POST_DELAY/2);
+  }
+  
+  intermediate[1] = 0x92;
+  ti_send(intermediate, 4);
+  delay(DEFAULT_POST_DELAY/2);
+  
+  serPort.write(0x01);
+}
+
+ // ==============================================================
+ // ==============================================================
+
  // goes to Serial
  int ti_receiveBackup() {
    outprint("-BOF-\n");

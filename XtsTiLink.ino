@@ -23,6 +23,7 @@
 *    \___ can now call PRGM just after download (by TI Keyboard Controlling)
 *    \___ able to send it as ARCHIVE or not
 *    \___ able to Stream from FLASH (for long files support)
+*    \___ able to Stream from SERIAL (for very-long files support)
 * - ABLE to Dump Memory (backup) [EXPERIMENTAL]
 * - ABLE to send a backup (.92B) to TI
 *
@@ -38,7 +39,7 @@
 //#include "PONG.h"
 //#include "bbb.h"
 // #include "tetrisgb.h"  // Works well on a TI92+ (as ASM Var)
-#include "xtsterm.92p.h"
+#include "xtsterm.92p.h"  // Works well on TI92-1 w/ Fargo
 
 #define TI_MODEL_92
 #include "tilink.h"
@@ -119,6 +120,8 @@ void reboot() {
   asm volatile ("  jmp 0");
 }
 
+#define DBUG_DUMMY true
+
 void loop() {
   //delay(500);
   int recvNb = -1;
@@ -130,7 +133,6 @@ void loop() {
   recvNb = ti_recv(recv, 2);
   
   if ( recvNb == 0 && recv[0] == 'X' && recv[1] == ':' ) {
-    //serPort.println(F("DUMMY ??"));
     recvNb = ti_recv(recv, 6+1);
     //serPort.print( recvNb ); serPort.print( F(" ") ); serPort.print( recv[0] ); serPort.print( F(" ") ); serPort.println( recv[1] ); 
     //if ( recvNb == 0 && recv[0] == 0xFF && recv[1] == 'b' ) {
@@ -138,14 +140,17 @@ void loop() {
       // X:begin\n
       // dummy serial mode : XtsTerm.92p
 
-      serPort.println(F("DUMMY"));
+      if (DBUG_DUMMY) serPort.println(F("DUMMY"));
+      const int MAX_READ_LEN = 128;
 
       while(true) {
-        if ( (recvNb = serPort.available()) > 0 ) {
-          // !! max 814 !!
-          memset(screen, 0x00, 128);
-          recvNb = serPort.readBytes( screen, recvNb );
-          //ti_send( screen, recvNb );
+        while ( (recvNb = serPort.available()) > 0 ) {
+
+          // DONE : FIX split into MAX(128) packets
+          // then send those separatedly
+
+          memset(screen, 0x00, MAX_READ_LEN);
+          recvNb = serPort.readBytes( screen, min(MAX_READ_LEN, recvNb) );
           memset(recv, 0x00, 10);
           for(int i=0; i < recvNb; i++) {
             recv[0] = screen[i];
@@ -153,7 +158,7 @@ void loop() {
             delay(1);
           }
           delay(DEFAULT_POST_DELAY/2);
-        }
+        } // end while Serial.available()
 
         recvNb = ti_recv(recv, 2);
         if ( recvNb == 0 && recv[0] == 'X' && recv[1] == ':' ) {
@@ -163,7 +168,7 @@ void loop() {
           if ( recvNb == 0 && recv[0] == '?' && recv[1] == 'e' ) {
             // X:end\n -> end of serial session
             // break;
-            serPort.println(F("EXIT DUMMY"));
+            if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
             reboot();
             return;
           } 
@@ -194,7 +199,7 @@ void loop() {
             }
             else if ( kc == 4360 ) {
               // dirty trap
-              serPort.println(F("EXIT DUMMY"));
+              if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
               ti_recv(recv, 2+4+1);
               reboot();
               return;
@@ -248,11 +253,11 @@ void loop() {
         sendAbackup(blen);
       }
 
-      else if (Serial.peek() == 'D') {
-        Serial.read();
-        dummyMode();
-      } else
-      if (Serial.peek() == '\\') {
+      // else if (Serial.peek() == 'D') {
+      //   Serial.read();
+      //   dummyMode();
+      // } else
+      else if (Serial.peek() == '\\') {
         Serial.read();
         if (Serial.read() == 'S') {
           if (Serial.peek() == 'R') {
@@ -265,9 +270,8 @@ void loop() {
 
             // doesn't fit in an int !!!!!!
             // 39350 bytes
-            uint16_t blen = (d0*256)+d1;
-
-            delay(500);
+            //uint16_t blen = (d0*256)+d1;
+            //delay(500);
 
             outprintln("NO MORE SUPPORTED");
             // digitalWrite(13, LOW);
@@ -282,6 +286,7 @@ void loop() {
           }
         } else {
           if (Serial.read() == 'B') {
+            // NOT fully CRETIFIED
             ti_receiveBackup();
           }
         }
@@ -318,10 +323,6 @@ void loop() {
   ti_resetLines();
   delay(100);
   recvNb = ti_recv(recv, 4); // => calculator's ACK
-  // Serial.print("ACK "); Serial.print(recvNb); Serial.print(" "); 
-  // Serial.print( recv[0],HEX ); Serial.print(" ");Serial.print( recv[1],HEX ); Serial.print(" ");Serial.print( recv[2],HEX ); Serial.print(" ");Serial.print( recv[3],HEX );
-  // Serial.println("");
-  
   ti_resetLines();
   // recvNb is always 0 !!! --> returns the available/remaining bytes ...
   recvNb = ti_recv(recv, 4); // ? 89 15 00 0F ? <TI92> <?> <LL> <HH> => 00 0F => 0F 00 = 3840 screen mem size
@@ -338,10 +339,8 @@ void loop() {
     dispScreenMem(howMany);
   }
 
-
   recvNb = ti_recv(recv, 2); // checksum from TI
   //Serial.println(recvNb);
-  
   
   data[1] = REP_OK;
   ti_send(data, 4); // Arduino's ACK
@@ -370,167 +369,58 @@ void sendFlashFileToTi() {
 
 }
 
-uint8_t tmp[32];
-uint8_t b[1];
-int tmpOffset = 0;
-int tmpLength = 0;
+// uint8_t tmp[32];
+// uint8_t b[1];
+// int tmpOffset = 0;
+// int tmpLength = 0;
 
-void dummyMode() {
-  serPort.write(0x06);
-  int ch, l;//, l0,l1;
-  while( true ) {
+// void dummyMode() {
+//   serPort.write(0x06);
+//   int ch, l;//, l0,l1;
+//   while( true ) {
 
-    while(serPort.available() == 0) { 
-      //delay(1); 
-      // @ this time : for Dump (max return is 16)
+//     while(serPort.available() == 0) { 
+//       //delay(1); 
+//       // @ this time : for Dump (max return is 16)
       
-      int r = ti_recv(b, 1); // direct reading
-      if ( r == 0 ) { tmp[ tmpOffset++ ] = b[0]; tmpLength++; }
-    }
+//       int r = ti_recv(b, 1); // direct reading
+//       if ( r == 0 ) { tmp[ tmpOffset++ ] = b[0]; tmpLength++; }
+//     }
 
-    ch = serPort.read();
-    if ( ch == (int)'X' ) {
-      serPort.write( 0x06 );
-      break;
-    } else if ( ch == (int)'S' ) {
-      l = (serPort.read()*256) + serPort.read();
-      // BEWARE if more than 514
-      serPort.readBytes( screen, l );
-      // ti_resetLines();
+//     ch = serPort.read();
+//     if ( ch == (int)'X' ) {
+//       serPort.write( 0x06 );
+//       break;
+//     } else if ( ch == (int)'S' ) {
+//       l = (serPort.read()*256) + serPort.read();
+//       // BEWARE if more than 514
+//       serPort.readBytes( screen, l );
+//       // ti_resetLines();
       
-      ti_send(screen, l);
-// //delay(5);
-// ti_resetLines();
-//       ti_recv(tmp, 8); // direct reading
-      serPort.write( 0x06 ); //handshake - internal
-    } else if ( ch == (int)'R' ) {
-      l = (serPort.read()*256) + serPort.read();
-      // BEWARE if more than 514
-      // ti_resetLines();
-      //ti_recv(screen, l);
+//       ti_send(screen, l);
+// // //delay(5);
+// // ti_resetLines();
+// //       ti_recv(tmp, 8); // direct reading
+//       serPort.write( 0x06 ); //handshake - internal
+//     } else if ( ch == (int)'R' ) {
+//       l = (serPort.read()*256) + serPort.read();
+//       // BEWARE if more than 514
+//       // ti_resetLines();
+//       //ti_recv(screen, l);
       
-      //ti_recv(tmp, l);
+//       //ti_recv(tmp, l);
 
-      for(int i=0; i < l; i++) {
-        serPort.write(tmpOffset-tmpLength+i);  
-      }
-      tmpOffset -= l; // NOT CERTIFIIED
-      tmpLength -= l;
+//       for(int i=0; i < l; i++) {
+//         serPort.write(tmpOffset-tmpLength+i);  
+//       }
+//       tmpOffset -= l; // NOT CERTIFIIED
+//       tmpLength -= l;
 
-    }
-  }
-}
+//     }
+//   }
+// }
 
-uint16_t chksum(uint8_t* seg, int len) {
-  uint16_t result = 0x0000;
-  for(int i=4; i < len-2; i++) {
-    result += seg[i];
-  }
-  result &= 0xFFFF;
-  return result;
-}
 
-void sendAbackup(uint16_t dataLen) {
-  uint8_t romVer[] = { '1', '.', '1', '2' };
-  
-  // 9A 08 -> 39432 -> dataLen
-  //                                               vvvv  vvvv
-  uint8_t pc2tiMsg[16] = { 0x09, 0x06, 0x0A, 0x00, 0x08, 0x9A, 0x00, 0x00, 0x1D, 0x04, romVer[0], romVer[1], romVer[2], romVer[3], 0x00, 0x00 };
-  uint8_t ti2pcMsg[4];
-  uint8_t intermediate[4] = { 0x09, 0x56, 0x00, 0x00 };
-  uint8_t chkSUM[2] = { 0x00, 0x00 };
-  
-  pc2tiMsg[4] = ( dataLen % 256 );
-  pc2tiMsg[5] = ( dataLen / 256 ) & 0xFF;
-  
-  uint16_t chk = chksum(pc2tiMsg, 16);
-  pc2tiMsg[14] = ( chk % 256 );
-  pc2tiMsg[15] = ( chk / 256 ) & 0xFF;
-  
-  ti_send( pc2tiMsg, 16 );
-  delay(DEFAULT_POST_DELAY);
-  
-  ti_recv(ti2pcMsg, 4);
-  if ( ti2pcMsg[1] != 0x56 ) { outprint("ERR HEAD 1"); DBUG(ti2pcMsg, 4); return; }
-  
-  for(uint16_t i=0; i < dataLen; i += 1024) {
-    int remLen = 1024;
-    if ( i+1024 > dataLen ) { remLen = dataLen-i; }
-  
-  	pc2tiMsg[4] = ( remLen / 256 ) & 0xFF; 
-  	pc2tiMsg[5] = ( remLen % 256 );
-  	chk = chksum(pc2tiMsg, 16);
-    pc2tiMsg[14] = ( chk % 256 );
-    pc2tiMsg[15] = ( chk / 256 ) & 0xFF; 
-    ti_send( pc2tiMsg, 16);
-    delay(DEFAULT_POST_DELAY/2);
-    
-  	ti_recv(ti2pcMsg, 4);
-  	if ( ti2pcMsg[1] != 0x56 ) { outprint(F("ERR BB a ")); outprint( i/1024 ); DBUG(ti2pcMsg, 4); return; }  
-    delay(DEFAULT_POST_DELAY/2);
-
-  	ti_recv(ti2pcMsg, 4);
-    if ( ti2pcMsg[1] == 0x56 ) {
-      ti_recv(ti2pcMsg, 4);
-      delay(DEFAULT_POST_DELAY/2);
-    }
-  	if ( ti2pcMsg[1] != 0x09 ) { outprint(F("ERR BB b ")); outprint( i/1024 ); DBUG(ti2pcMsg, 4); return; }  
-    delay(DEFAULT_POST_DELAY/2);
-
-    intermediate[1] = 0x56;
-    ti_send(intermediate, 4);
-    delay(DEFAULT_POST_DELAY/2);
-    
-    intermediate[1] = 0x15;
-    
-    intermediate[2] = remLen%256;
-    intermediate[3] = remLen/256;
-    ti_send(intermediate, 4);
-    
-    
-    // =======================
-    // SEND 1024 bytes
-    // get chk
-    chk = 0;int e=0;
-    if ( remLen > 512 ) {
-      serPort.write(0x01);
-
-      serPort.readBytes( screen, 512 );
-      for(int i=0; i < 512; i++) { chk += screen[i]; }
-      ti_send( screen, 512 );
-      e+=512;
-      // outprint( 512 ); outprintln(F(" bytes"));
-    }
-    
-    int ll = min( remLen-e, 512 );
-    serPort.write(0x01);
-
-    serPort.readBytes( screen, ll );
-    for(int i=0; i < ll; i++) { chk += screen[i]; }
-    ti_send( screen, ll );
-    
-    // outprint( ll+e ); outprintln(F(" bytes"));
-    // =======================
-    
-    chk &= 0xFFFF;
-    
-    chkSUM[0] = chk % 256;
-    chkSUM[1] = chk / 256;
-    ti_send(chkSUM, 2);
-    delay(DEFAULT_POST_DELAY/2);
-    
-    
-    ti_recv(ti2pcMsg, 4);
-  	if ( ti2pcMsg[1] != 0x56 ) { outprint(F("ERR EB a ")); outprint( i/1024 ); DBUG(ti2pcMsg, 4); return; }  
-    delay(DEFAULT_POST_DELAY/2);
-  }
-  
-  intermediate[1] = 0x92;
-  ti_send(intermediate, 4);
-  delay(DEFAULT_POST_DELAY/2);
-  
-  serPort.write(0x01);
-}
 
 
 
