@@ -1,8 +1,15 @@
-TODO - last update 24/05/2017
+TODO - last update 26/05/2017
 
 https://hackaday.io/project/24826-xtsti92serialterm
 http://xtase.over-blog.com/2017/05/ti-92-serial-terminal-hack.html
 https://github.com/fgalliat/XtsTiLink_gh
+
+
+ - FIX 128 bytes bloc max for sending to TI -> (!!!!) ---->> TO FIND !!!!!!!
+
+ - sudo /sbin/getty -L ttyUSB0 115200 (will need Ctrl-C / Ctrl-D / tab / '_' / '|' / '?' / ',' / ':' )
+                                      (local echo) - add a key combo to disactivate it
+                                      ($> logout works)
 
  - finish receiveBackup() -> constituate a well formed .92B (patchable by fargo)
  - ROM restore support is limited to v 1.12 of the TI92 ROM
@@ -15,7 +22,8 @@ https://github.com/fgalliat/XtsTiLink_gh
 
  - remove "DUMMY" dbugs in order to be directly wired to serial devices
 
- - FIX 128 bytes bloc max for sending to TI -> (!!!!)
+
+ - FIX BackSpace driving codes
 
  - add gfx routines & protocol in XtsTerm to provide a GFX mode (240x128 + ?grayscale?)
 

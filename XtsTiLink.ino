@@ -141,23 +141,42 @@ void loop() {
       // dummy serial mode : XtsTerm.92p
 
       if (DBUG_DUMMY) serPort.println(F("DUMMY"));
-      const int MAX_READ_LEN = 128;
+      // const int MAX_READ_LEN = 128;
+      // can handler a bit more but we will limit to that....
+      // for backup : we readBytes(512) -> & it works ....
+      // but XtsTerm reads bytes one per one
+      // see : https://internetofhomethings.com/homethings/?p=927
+      const int MAX_READ_LEN = 64;
+      memset(screen, 0x00, MAX_READ_LEN);
 
       while(true) {
         while ( (recvNb = serPort.available()) > 0 ) {
 
-          // DONE : FIX split into MAX(128) packets
+          // DONE : FIX split into MAX(128) packets<
+          // 128 is maybe too much for serial port
+          // try 64 bytes - found an web (69 works but ....)
           // then send those separatedly
 
-          memset(screen, 0x00, MAX_READ_LEN);
+          //memset(screen, 0x00, MAX_READ_LEN);
           recvNb = serPort.readBytes( screen, min(MAX_READ_LEN, recvNb) );
+
+          // sends nb of bytes received
+          // requires @least v 1.0.A of XtsTerm
+          recv[0] = recvNb;
+          ti_send( recv, 1 );
+          delay(1);
+
+          ti_send( screen, recvNb );
+          memset(screen, 0x00, MAX_READ_LEN);
           memset(recv, 0x00, 10);
-          for(int i=0; i < recvNb; i++) {
-            recv[0] = screen[i];
-            ti_send( recv, 1 );
+
+          //delay(DEFAULT_POST_DELAY/2);
+
+          // waits for 0x06 xtsTerm Handshake
+          // require XtsSterm 1.0.C
+          while( ti_recv(recv, 1) != 0 ) {
             delay(1);
           }
-          delay(DEFAULT_POST_DELAY/2);
         } // end while Serial.available()
 
         recvNb = ti_recv(recv, 2);

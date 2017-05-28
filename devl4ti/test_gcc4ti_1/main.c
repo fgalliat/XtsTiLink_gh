@@ -66,6 +66,64 @@
 #define KEY_QUIT 4360
 #define KEY_ESC  264
 
+#define SCREEN_WIDTH 240
+#define SCREEN_HEIGHT 128
+
+#define FONT_WIDTH 4
+#define FONT_HEIGHT 6
+
+char chs[2] = {0x00, 0x00};
+int x = 0, y = 8;
+
+void br() {
+	y += (FONT_HEIGHT+1); 
+	x=0;
+	if ( y > SCREEN_HEIGHT - 10 ) {
+		moa_cls();
+		y=8;
+	}
+}
+
+void println(char* str, int len) {
+	DrawStr(x, y, str, A_NORMAL);
+	br();
+}
+
+// may have to send an hanshake to Arduino
+void print(char* str, int len) {
+  char bytes[len+1];
+  memset(bytes, 0x00, len+1);
+  int cursor = 0;
+
+  //v2 of impl.	
+  for(int i=0; i < len; i++) {
+    if ( str[i] == 13 ) { continue; }	
+  	if ( str[i] == 10 ) {
+  		println( bytes, cursor );
+  		memset(bytes, 0x00, cursor);
+  		cursor = 0;
+  	}
+  	else {
+	  	if ( x + (cursor*FONT_WIDTH) >= SCREEN_WIDTH-10 ) {
+	  		println( bytes, cursor );
+	  		memset(bytes, 0x00, cursor);
+	  		cursor = 0;
+	  	}
+	  	
+	  	bytes[ cursor++ ] = str[i];
+  	}
+ 	}
+ 	
+ 	if ( cursor > 0 ) {
+ 		//println( bytes, cursor );
+ 		DrawStr(x, y, bytes, A_NORMAL);
+ 		x += (cursor*FONT_WIDTH);
+ 		if ( x >= SCREEN_WIDTH-10 ) { br(); }
+ 	}
+}
+
+
+
 // Main Function
 void _main(void) {
 /*
@@ -81,13 +139,18 @@ void _main(void) {
   } // necessary ??
 */
 
+	// seems that global delaracted variables
+	// doesn't reset @ PRGM re-launch.....
+  x=0;
+  y=8;
+
   moa_cls();
 	FontSetSys( F_4x6 );
 	
-	DrawStr(0, 0, "XtsTiTerm 1.0.7", A_NORMAL);
+	DrawStr(0, 0, "XtsTiTerm 1.0.H", A_NORMAL);
 
-	char chs[2] = {0x00, 0x00};
-	int x = 0, y = 8;
+	
+	
 	char inByte[] = {0};
 	char* KEYseq = (char*)"K:";
 	
@@ -97,6 +160,7 @@ void _main(void) {
 	char KEYval[6];
 	
 	char* KEYend = (char*)"\n";
+	char HANDSHAKEseq[1] = { 0x06 }; 
 		
 	// ========== that code prevents from "#### LINE 1111 : Emulator #####" ==
 	// Ugly hack to find LIO_SendData and LIO_RecvData...
@@ -115,21 +179,29 @@ void _main(void) {
 	
 	LIO_SendData(beginSession,2+6+1);
 	
+	// just a try ....
+	char inLengthBuf[1]; // no more than 256
+	int inLength;
+	char inputBuf[256];
+	
+	
 	while( true ) {
 		
 	  // ,1 -> byte
   	// ,2 -> short ...	
-	 	if ( LIO_RecvData(inByte,1,1) ) {
-	 		// failed	
-	 	} else {
-	 		chs[0] = inByte[0];
-	 		if ( chs[0] == 13 ) { continue; }
-	 		else if ( chs[0] == 10 ) { y += (6+1); x=0; }
-	 		else {
-		 		DrawStr(x, y, chs, A_NORMAL);
-		 		x += 4; 
-	 			if ( x >= 240-10 ) { y += (6+1); x=0; }
-	 		}
+	 	//if ( LIO_RecvData(inByte,1,4) ) {
+	 		
+	 	while(true) {
+			if ( LIO_RecvData(inLengthBuf,1,4) ) {
+		 		// failed	
+		 		break;
+		 	} else {
+		 		inLength = (int)inLengthBuf[0];	
+		 		LIO_RecvData(inputBuf,inLength,0); // wait infinitly
+		 		print( inputBuf, inLength );
+		 		
+		 		LIO_SendData(HANDSHAKEseq,1);
+		 	}
 	 	}
 	
 		//ngetchx();
@@ -152,11 +224,11 @@ void _main(void) {
 			} else {
 				// local echo
 			  chs[0] = (char)key;	
-				if ( chs[0] == 13 ) { y += (6+1); x=0; }
+				if ( chs[0] == 13 ) { br(); }
 		 		else {
 			 		DrawStr(x, y, chs, A_NORMAL);
 			 		x += 4; 
-		 			if ( x >= 240-10 ) { y += (6+1); x=0; }
+		 			if ( x >= SCREEN_WIDTH-10 ) { br(); }
 		 		}
 			}
 			
