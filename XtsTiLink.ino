@@ -141,42 +141,46 @@ void loop() {
       // dummy serial mode : XtsTerm.92p
 
       if (DBUG_DUMMY) serPort.println(F("DUMMY"));
-      // const int MAX_READ_LEN = 128;
-      // can handler a bit more but we will limit to that....
-      // for backup : we readBytes(512) -> & it works ....
-      // but XtsTerm reads bytes one per one
+
       // see : https://internetofhomethings.com/homethings/?p=927
-      const int MAX_READ_LEN = 64;
-      memset(screen, 0x00, MAX_READ_LEN);
+      const int MAX_READ_LEN = 32;
+      memset(screen, 0x00, MAX_READ_LEN+1);
+
+      int fullPacketLen = 0;
 
       while(true) {
-        while ( (recvNb = serPort.available()) > 0 ) {
+        while ( (fullPacketLen = serPort.available()) > 0 ) {
 
-          // DONE : FIX split into MAX(128) packets<
-          // 128 is maybe too much for serial port
-          // try 64 bytes - found an web (69 works but ....)
-          // then send those separatedly
+          // DONE : NO MORE delay() in this loop 
 
-          //memset(screen, 0x00, MAX_READ_LEN);
-          recvNb = serPort.readBytes( screen, min(MAX_READ_LEN, recvNb) );
+          for(int i=0; i < fullPacketLen; i+=MAX_READ_LEN) {
+            memset(screen, 0x00, MAX_READ_LEN+1);
 
-          // sends nb of bytes received
-          // requires @least v 1.0.A of XtsTerm
-          recv[0] = recvNb;
-          ti_send( recv, 1 );
-          delay(1);
+            int toRead = MAX_READ_LEN;
+            if ( i + MAX_READ_LEN > fullPacketLen ) {
+              toRead = fullPacketLen - i;
+            }
+            serPort.readBytes( screen, toRead );
 
-          ti_send( screen, recvNb );
-          memset(screen, 0x00, MAX_READ_LEN);
-          memset(recv, 0x00, 10);
+            // sends nb of bytes received
+            // requires @least v 1.1.0 of XtsTerm
+            recv[0] = toRead / 256; 
+            recv[1] = toRead % 256; 
+            ti_send( recv, 2 );
 
-          //delay(DEFAULT_POST_DELAY/2);
+            // send data packet
+            ti_send( screen, toRead );
+            //memset(screen, 0x00, recvNb);
+            memset(recv, 0x00, 10);
 
-          // waits for 0x06 xtsTerm Handshake
-          // require XtsSterm 1.0.C
-          while( ti_recv(recv, 1) != 0 ) {
-            delay(1);
-          }
+            // waits for 0x06 xtsTerm Handshake (0x06)
+            // require XtsSterm 1.0.C
+            while( ti_recv(recv, 1) != 0 && recv[0] != 0x06 ) {
+            }
+          } // end of for
+
+          // delay(DEFAULT_POST_DELAY/2);
+
         } // end while Serial.available()
 
         recvNb = ti_recv(recv, 2);
@@ -210,21 +214,34 @@ void loop() {
             }
             int kc = atoi( intValue );
             //Serial.print("found key ["); Serial.print(kc); Serial.print("] ("); Serial.print( (char)kc ); Serial.print(") \n");
-            if ( kc == 264 ) { kc = 27; }
-            else if ( kc == 13 ) { kc = 10; }
+            if ( kc == 264 ) { 
+              // Esc
+              kc = 27; 
+              serPort.write( kc );
+            }
+            else if ( kc == 13 ) { 
+              // Enter
+              kc = 10; 
+              serPort.write( kc );
+            }
             else if ( kc == 257 ) { 
+              // BackSpace
               serPort.write( 8 );
-              kc = 32;
+              serPort.write( 32 );
+              serPort.write( 8 );
             }
             else if ( kc == 4360 ) {
-              // dirty trap
+              // 2nd + Quit
+              // - dirty trap -
               if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
               ti_recv(recv, 2+4+1);
               reboot();
               return;
             }
-            Serial.print( (char)kc );
-          
+            else {
+              serPort.print( (char)kc );
+            }
+
         }
         delay(1);
       } // end while

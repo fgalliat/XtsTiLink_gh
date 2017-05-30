@@ -5,25 +5,38 @@ http://xtase.over-blog.com/2017/05/ti-92-serial-terminal-hack.html
 https://github.com/fgalliat/XtsTiLink_gh
 
 
- - FIX 128 bytes bloc max for sending to TI -> (!!!!) ---->> TO FIND !!!!!!!
+ - FIX 128 bytes bloc max for sending to TI -> (!!!!) ---->> OK was able to send 702 bytes (32 per 32)
 
  - sudo /sbin/getty -L ttyUSB0 115200 (will need Ctrl-C / Ctrl-D / tab / '_' / '|' / '?' / ',' / ':' )
+				      (+ keyCombo to display these shortcuts as in BASIC mode Diam.+K)
+				      Q ? // W ! // R @ // T # // P _ // H & // K | // L " // B ' // N ~ // M ; 
+2nd Q ? 63
+    W ! 33
+    R @ 64
+    T # 35
+    P _ 95
+    H & 38
+    K | 124
+    L " 34
+    B ' 39
+    N ~ waits for a folowing key (have to find another combo)
+    M ; 59
+                                      (2nd, Shift, Diamond)
                                       (local echo) - add a key combo to disactivate it
                                       ($> logout works)
+
+ - FIX BackSpace driving codes
+
 
  - finish receiveBackup() -> constituate a well formed .92B (patchable by fargo)
  - ROM restore support is limited to v 1.12 of the TI92 ROM
 
- - support for spe/combo-chars in XtsTerm ('?' '!', find a key for tab)
  - support VT100 escape sequence in XtsTerm (for reverse-video mode text, underline text, cursor operations)
      > http://hackipedia.org/Protocols/Terminal,%20DEC%20VT100/html/VT100%20Escape%20Codes.html
      > F1 to F4 seems to be sendable
      > Arrows seems to be also sendable
 
  - remove "DUMMY" dbugs in order to be directly wired to serial devices
-
-
- - FIX BackSpace driving codes
 
  - add gfx routines & protocol in XtsTerm to provide a GFX mode (240x128 + ?grayscale?)
 

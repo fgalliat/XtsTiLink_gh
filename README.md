@@ -17,8 +17,11 @@ using an Arduino as multipurposes "Link Cable"
 * /docs/    -> guess ...
 * ./        -> Arduino program for Serial Inteface
 
+STILL HAVE TODO :
+ - VT100 minimal command parsing/executing
+
 @Xtase - fgalliat May 2017
 
-![minimal wiring](/pictures/c_screenshot.jpg)
+![ScreenShot Dump](/pictures/c_screenshot.jpg)
 
 You're allowed to fork / modify / redistribute these contents since you mentionate me ....

@@ -72,6 +72,9 @@
 #define FONT_WIDTH 4
 #define FONT_HEIGHT 6
 
+#define LOCAL_ECHO false
+#define LOCAL_DBGKEY false
+
 char chs[2] = {0x00, 0x00};
 int x = 0, y = 8;
 
@@ -84,13 +87,42 @@ void br() {
 	}
 }
 
-void println(char* str, int len) {
+void printSeg(char* str) {
 	DrawStr(x, y, str, A_NORMAL);
-	br();
 }
 
-// may have to send an hanshake to Arduino
 void print(char* str, int len) {
+  char str2[ len+1 ];
+  //for(int i=0; i < len; i++) { str2[i] = str[i]; }
+  memcpy( str2, str, len );
+  str2[len] = 0x00;	
+
+	printSeg( str2 );
+}
+
+
+void println(char* str, int len) {
+  print(str, len);
+	br();	
+}
+
+//// dirty impl v1
+//void shiftArray(char* arry, int offset, int len) {
+//	for(int i=0; i < len; i++) {
+//		arry[i] = arry[offset+i];
+//	}
+//}
+
+
+void disp(char* str, int len) {
+  if ( len == 0 )	{
+    return;
+  }
+  
+  if ( len < 0 ) {
+  	len = strlen( str );
+  }
+	
   char bytes[len+1];
   memset(bytes, 0x00, len+1);
   int cursor = 0;
@@ -99,14 +131,19 @@ void print(char* str, int len) {
   for(int i=0; i < len; i++) {
     if ( str[i] == 13 ) { continue; }	
   	if ( str[i] == 10 ) {
-  		println( bytes, cursor );
-  		memset(bytes, 0x00, cursor);
-  		cursor = 0;
+  		if ( cursor == 0 ) {
+  			br();
+  		} else {
+	  		println( bytes, cursor );
+	  		memset(bytes, 0x00, len+1);
+	  		cursor = 0;
+  		}
   	}
   	else {
 	  	if ( x + (cursor*FONT_WIDTH) >= SCREEN_WIDTH-10 ) {
 	  		println( bytes, cursor );
-	  		memset(bytes, 0x00, cursor);
+	  		//memset(bytes, 0x00, cursor);
+	  		memset(bytes, 0x00, len+1);
 	  		cursor = 0;
 	  	}
 	  	
@@ -116,7 +153,7 @@ void print(char* str, int len) {
  	
  	if ( cursor > 0 ) {
  		//println( bytes, cursor );
- 		DrawStr(x, y, bytes, A_NORMAL);
+ 		print(bytes, cursor);
  		x += (cursor*FONT_WIDTH);
  		if ( x >= SCREEN_WIDTH-10 ) { br(); }
  	}
@@ -147,16 +184,9 @@ void _main(void) {
   moa_cls();
 	FontSetSys( F_4x6 );
 	
-	DrawStr(0, 0, "XtsTiTerm 1.0.H", A_NORMAL);
+	DrawStr(0, 0, "XtsTiTerm 1.1.7", A_NORMAL);
 
-	
-	
-	char inByte[] = {0};
 	char* KEYseq = (char*)"K:";
-	
-	//char* KEYval = (char*)malloc(6);
-	//HANDLE hKEYval = HeapAlloc(6);
-	//char* KEYval = HeapDeref( hKEYval );
 	char KEYval[6];
 	
 	char* KEYend = (char*)"\n";
@@ -180,9 +210,9 @@ void _main(void) {
 	LIO_SendData(beginSession,2+6+1);
 	
 	// just a try ....
-	char inLengthBuf[1]; // no more than 256
-	int inLength;
-	char inputBuf[256];
+	char inLengthBuf[2]; // no more than 64KB
+	unsigned int inLength;
+	char inputBuf[512+1];
 	
 	
 	while( true ) {
@@ -191,21 +221,32 @@ void _main(void) {
   	// ,2 -> short ...	
 	 	//if ( LIO_RecvData(inByte,1,4) ) {
 	 		
+	 	// read from I/O
 	 	while(true) {
-			if ( LIO_RecvData(inLengthBuf,1,4) ) {
+			if ( LIO_RecvData(inLengthBuf,2,1) ) {
 		 		// failed	
 		 		break;
 		 	} else {
-		 		inLength = (int)inLengthBuf[0];	
-		 		LIO_RecvData(inputBuf,inLength,0); // wait infinitly
-		 		print( inputBuf, inLength );
+		 		
+		 	  // 2 bytes for length
+		 		inLength = (int)inLengthBuf[0] * 256;	
+		 		inLength += (int)inLengthBuf[1];
+		 		
+		 		if ( inLength > 0 ) {
+					memset(inputBuf, 0x00, 512+1);
+	//			sprintf( KEYval, "%d >", inLength );
+	//			println( KEYval, strlen( KEYval ) );
+			 		LIO_RecvData(inputBuf,inLength,0); // wait infinitly
+			 		disp( inputBuf, inLength );
+				}
+
 		 		
 		 		LIO_SendData(HANDSHAKEseq,1);
 		 	}
 	 	}
 	
+		// read from KBD
 		//ngetchx();
-		// wait a key press
 		//short key = GetKeyInput();
 		if ( kbhit() ) {
 			short key = ngetchx();
@@ -214,7 +255,7 @@ void _main(void) {
 			memset( KEYval, 0x00, 6);
 			//itoa( key, KEYval, 10 );
 			sprintf( KEYval, "%d", key );
-			LIO_SendData(KEYval,strlen(KEYval));	// send keystroke
+			LIO_SendData(KEYval,strlen(KEYval));	// send keystroke code
 			LIO_SendData(KEYend,1);
 			
 			//LIO_SendData(&key,2);	// send keystroke
@@ -222,19 +263,29 @@ void _main(void) {
 			if ( key == KEY_QUIT ) {
 			  break;				
 			} else {
-				// local echo
-			  chs[0] = (char)key;	
-				if ( chs[0] == 13 ) { br(); }
-		 		else {
-			 		DrawStr(x, y, chs, A_NORMAL);
-			 		x += 4; 
-		 			if ( x >= SCREEN_WIDTH-10 ) { br(); }
+				
+			  if ( LOCAL_ECHO ) {
+					// local echo
+				  chs[0] = (char)key;	
+					if ( chs[0] == 13 ) { br(); }
+			 		else {
+			 			DrawStr(x, y, chs, A_NORMAL);
+			 			x += FONT_WIDTH;
+			 			if ( x >= SCREEN_WIDTH-10 ) { br(); }
+			 		}
 		 		}
+		 		
+		 		if (LOCAL_DBGKEY) {
+		 			// local keystroke display code	
+			 		DrawStr(x, y, KEYval, A_NORMAL);
+			 		x += FONT_WIDTH *5; 
+			 		if ( x >= SCREEN_WIDTH-10 ) { br(); }
+		 		}
+		 		
 			}
-			
-			
-		}
-	}
+		} // if kbhit()
+		
+	} // end while
 	
 	LIO_SendData(endSession,2+4+1);
 }
