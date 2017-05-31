@@ -25,6 +25,11 @@ https://github.com/fgalliat/XtsTiLink_gh
                                       (local echo) - add a key combo to disactivate it
                                       ($> logout works)
 
+
+^[0m^[01;34mBureau^[0m
+
+
+
  - FIX BackSpace driving codes
 
 

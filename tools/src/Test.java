@@ -22,36 +22,24 @@ public class Test {
   }
   
   public static void main(String[] args) throws Exception {
-	 //mainRecv( null );
-
-	//    if ( args != null && args.length >= 1 ) {
-	// 	   if ( args[0].equalsIgnoreCase("92b") ) {
-	// 			mainSend( args.length >= 2 );
-	// 		} else {
-	// 			mainSendPrgm(true, "../fs/fargo/"+ args[0] +".92p", "main\\"+ args[0] +"" );
-	// 		}
-	// 	} else {
-	// 		//mainSendPrgm(true, "../fs/bbb.92p", "main\\bbb" );
-	// 		mainSendPrgm(true, "../fs/TetrisGB.9xz", "main\\atet" );
-	// 	}
-
 	// mainSendPrgm(true, "../fs/fargo/flib.92p", "main\\flib" );
 	// mainSendPrgm(true, "../fs/fargo/shell.92p", "main\\shell" );
 
 	if ( args.length > 0 ) {
-		sendPrgmToTi(args[0], args.length>1, true);
+		sendPrgmToTi(args[0], args.length>1, true, args.length > 2);
 	} else {
 		_("Na args supplied");
 	}
 
   }
 
-  public static void sendPrgmToTi(String filename, boolean autoexec, boolean kbdWait) throws Exception {
+  // autoExecLockEnter -> types varname but not final Enter key
+  public static void sendPrgmToTi(String filename, boolean autoexec, boolean kbdWait, boolean autoExecLockEnter) throws Exception {
 	String varName = new File(filename).getName();
 	// volountary not lastIndexOf(..)
 	varName = varName.substring( 0, varName.indexOf(".") );
 	varName = "main\\"+varName;
-	mainSendPrgm(autoexec, filename, varName, kbdWait );
+	mainSendPrgm(autoexec, filename, varName, kbdWait, autoExecLockEnter );
   }
 
 
@@ -69,11 +57,11 @@ _("Enter to start");
 
       System.out.println("begin");
 	     
-ArduinoMCU.writeBytes( new byte[] { '\\', 'R', 'B' } );
+		ArduinoMCU.writeBytes( new byte[] { '\\', 'R', 'B' } );
  _("waits");
       _( ArduinoMCU.readSerialLine(true) );
 
-FileOutputStream out = new FileOutputStream("../fs/test.92b");
+	FileOutputStream out = new FileOutputStream("../fs/test.92b");
 
 	while(true) {
 		int ch0 = ArduinoMCU.readOneByte();
@@ -82,36 +70,15 @@ FileOutputStream out = new FileOutputStream("../fs/test.92b");
 
 
 		_("receiving "+len+" bytes");
-if (len <= 0 || len > 1028) { break; }
-		//if (len <= 0 || len > 1028) { break; }
+		if (len <= 0 || len > 1028) { break; }
 
-		// only 514 ???
-		// byte[] rcv = serialPort.readBytes(len);
-		// _("receivd "+rcv.length+" bytes");
+		for(int i=0; i < len; i++) {
+			int ch = ArduinoMCU.readOneByte();
+			if ( i>=4 ) {
+				out.write(ch);
+			}
+		}
 
-		// out.write( rcv, 4, len-4 ); // skips 4 firsts bytes of each blocs
-
-// 		byte[] rcv = serialPort.readBytes( min(len, 514) );
-// 		_("a.receivd "+rcv.length+" bytes");
-// 		out.write( rcv, 4, min(len, 514)-4 ); // skips 4 firsts bytes of each blocs
-
-// if ( len > 514 ) {
-//  		rcv = serialPort.readBytes(514);
-// 		_("b.receivd "+rcv.length+" bytes");
-// 		out.write( rcv, 0, 514 );
-// }
-
-for(int i=0; i < len; i++) {
-	int ch = ArduinoMCU.readOneByte();
-	if ( i>=4 ) {
-		out.write(ch);
-	}
-}
-
-
-// if ( len < 1028 ){
-// 	break;
-// }
 
 	}	  
 _( ArduinoMCU.readSerialLine(true) );
@@ -138,14 +105,13 @@ static int min(int a, int b) { return a < b ? a : b; }
 
 
   // =================================================================
-  public static void mainSendPrgm(boolean autoRun, String fileName, String varName, boolean kbdWait) throws Exception {
+
+  public static void mainSendPrgm(boolean autoRun, String fileName, String varName, boolean kbdWait, boolean autoExecLockEnter) throws Exception {
     try {
       ArduinoMCU.open();
       
 	  // proMini doesn't resets @ each serPort.open()
 	   ArduinoMCU.reset();
-	//   // makes arduino reset when openeing port
-	//   Thread.sleep(2000);
 
       System.out.println("begin");
 
@@ -153,15 +119,12 @@ static int min(int a, int b) { return a < b ? a : b; }
 	  _( "G:"+ArduinoMCU.readSerialLine(false) );
       
       File b92 = new File(fileName);
-	  //File b92 = new File("../fs/backup.92B");
-      
       int blen = (int)b92.length();
       
 	  InputStream fis = new FileInputStream( b92 );
 
-	  	//byte[] head = new byte[86+2]; //+2 for size...
-		byte[] head = new byte[86];
-	  	fis.read(head);
+	  byte[] head = new byte[86];
+	  fis.read(head);
 
 	  int d0 = fis.read();
       int d1 = fis.read();
@@ -180,15 +143,12 @@ static int min(int a, int b) { return a < b ? a : b; }
 	  if (fileName.toLowerCase().endsWith(".92p")) { ArduinoMCU.writeByte( (byte)0x01 ); }
 	  else { ArduinoMCU.writeByte( (byte)0x00 ); }
 
-	  if (autoRun) { ArduinoMCU.writeByte( (byte)0x01 ); }
+	  if (autoRun) { ArduinoMCU.writeByte( (byte) (autoExecLockEnter ? 0x02 : 0x01) ); }
 	  else { ArduinoMCU.writeByte( (byte)0x00 ); }
       
       _("waits");
       _( ArduinoMCU.readSerialLine(true) );
       
-      //byte[] data = new byte[blen];
-      
-
       	_("Var "+ varName +" to "+ blen +" copy");
 		  // wait for '0x01' ready to send
       	int ch = ArduinoMCU.readOneByte();
@@ -200,11 +160,6 @@ static int min(int a, int b) { return a < b ? a : b; }
 
       	if ( ch == 1 ) {
       		_("->");
-      		// int readed = fis.read( data, 0, blen );
-			// System.out.println(readed+" bytes");
-      		// serialPort.writeBytes( data );
-
-
 			ArduinoMCU.writeByte((byte)0x00); // ACK
 
 			//final int BLOC_LEN = 128;
@@ -248,7 +203,7 @@ static int min(int a, int b) { return a < b ? a : b; }
       
 	  _("Enter to exit");
 	  
-	  if (kbdWait) kbd.readLine();;
+	  if (kbdWait) kbd.readLine();
 
     } catch(Exception ex) {
       ex.printStackTrace();

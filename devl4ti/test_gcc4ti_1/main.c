@@ -78,12 +78,18 @@
 char chs[2] = {0x00, 0x00};
 int x = 0, y = 8;
 
+
+void cls() {
+	moa_cls();
+	y=8; x = 0;
+	DrawStr(0, 0, "XtsTiTerm 1.1.9", A_NORMAL);
+}
+
 void br() {
 	y += (FONT_HEIGHT+1); 
 	x=0;
 	if ( y > SCREEN_HEIGHT - 10 ) {
-		moa_cls();
-		y=8;
+		cls();
 	}
 }
 
@@ -92,12 +98,13 @@ void printSeg(char* str) {
 }
 
 void print(char* str, int len) {
-  char str2[ len+1 ];
-  //for(int i=0; i < len; i++) { str2[i] = str[i]; }
-  memcpy( str2, str, len );
-  str2[len] = 0x00;	
-
-	printSeg( str2 );
+  //char str2[ len+1 ];
+  //memcpy( str2, str, len );
+  //str2[len] = 0x00;	
+	//printSeg( str2 );
+	
+  str[len] = 0x00;	
+	printSeg( str );
 }
 
 
@@ -105,13 +112,6 @@ void println(char* str, int len) {
   print(str, len);
 	br();	
 }
-
-//// dirty impl v1
-//void shiftArray(char* arry, int offset, int len) {
-//	for(int i=0; i < len; i++) {
-//		arry[i] = arry[offset+i];
-//	}
-//}
 
 
 void disp(char* str, int len) {
@@ -139,6 +139,24 @@ void disp(char* str, int len) {
 	  		cursor = 0;
   		}
   	}
+  	else if (str[i] == 27 && len > i+1 && str[i+1] == '[') {
+  		// this is a VT100 ESCAPE Cmd
+  		if ( len > i+3 && str[i+2] == '2' && str[i+3] == 'J' ) {
+  			cls();
+  			i+=4;
+  		} else if ( len > i+3 && str[i+2] >= '0' && str[i+2] <= '9' ) {
+	  		// character attributes
+	  		// ex. ^[0m      end of char attribs
+	  		// ex. ^[05;01;32;44m 
+	  		// blink 05 - bold 01 - green fg 32 ; blue bg 44
+	  		while( str[i] != 'm' && i < len ) { i++; }
+	  	} else {
+	  		i+=2;
+	  		bytes[ cursor++ ] = '^';
+	  		bytes[ cursor++ ] = '[';
+	  		bytes[ cursor++ ] = str[i];
+  		}
+  	}
   	else {
 	  	if ( x + (cursor*FONT_WIDTH) >= SCREEN_WIDTH-10 ) {
 	  		println( bytes, cursor );
@@ -159,6 +177,8 @@ void disp(char* str, int len) {
  	}
 }
 
+	char KEYval[8];
+	char HANDSHAKEseq[1] = { 0x06 }; 
 
 
 // Main Function
@@ -178,19 +198,8 @@ void _main(void) {
 
 	// seems that global delaracted variables
 	// doesn't reset @ PRGM re-launch.....
-  x=0;
-  y=8;
-
-  moa_cls();
 	FontSetSys( F_4x6 );
-	
-	DrawStr(0, 0, "XtsTiTerm 1.1.7", A_NORMAL);
-
-	char* KEYseq = (char*)"K:";
-	char KEYval[6];
-	
-	char* KEYend = (char*)"\n";
-	char HANDSHAKEseq[1] = { 0x06 }; 
+	cls();
 		
 	// ========== that code prevents from "#### LINE 1111 : Emulator #####" ==
 	// Ugly hack to find LIO_SendData and LIO_RecvData...
@@ -251,13 +260,9 @@ void _main(void) {
 		if ( kbhit() ) {
 			short key = ngetchx();
 			
-			LIO_SendData(KEYseq,2);
-			memset( KEYval, 0x00, 6);
-			//itoa( key, KEYval, 10 );
-			sprintf( KEYval, "%d", key );
+			memset( KEYval, 0x00, 8);
+			sprintf( KEYval, "K:%d\n", key );
 			LIO_SendData(KEYval,strlen(KEYval));	// send keystroke code
-			LIO_SendData(KEYend,1);
-			
 			//LIO_SendData(&key,2);	// send keystroke
 			
 			if ( key == KEY_QUIT ) {

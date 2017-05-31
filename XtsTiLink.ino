@@ -143,7 +143,8 @@ void loop() {
       if (DBUG_DUMMY) serPort.println(F("DUMMY"));
 
       // see : https://internetofhomethings.com/homethings/?p=927
-      const int MAX_READ_LEN = 32;
+      //const int MAX_READ_LEN = 32;
+      const int MAX_READ_LEN = 512;
       memset(screen, 0x00, MAX_READ_LEN+1);
 
       int fullPacketLen = 0;
@@ -170,7 +171,6 @@ void loop() {
 
             // send data packet
             ti_send( screen, toRead );
-            //memset(screen, 0x00, recvNb);
             memset(recv, 0x00, 10);
 
             // waits for 0x06 xtsTerm Handshake (0x06)

@@ -22,10 +22,8 @@ public class SendBackup {
   public static void main(String[] args) throws Exception {
 
 	mainSendBackup();
-	// _("ENTER"); kbd.readLine();
-	Test.sendPrgmToTi( "../fs/fargo/flib.92p", !true, false );
-	// _("ENTER"); kbd.readLine();
-	Test.sendPrgmToTi("../fs/fargo/shell.92p", true, false );
+	Test.sendPrgmToTi( "../fs/fargo/flib.92p", !true, false, false );
+	Test.sendPrgmToTi("../fs/fargo/shell.92p", true, false, false );
 
   }
 
@@ -40,93 +38,81 @@ static int min(int a, int b) { return a < b ? a : b; }
 	  // proMini doesn't resets @ each serPort.open()
 	  ArduinoMCU.reset();
 
-	//   // makes arduino reset when openeing port
-	//   Thread.sleep(2000);
+		System.out.println("begin");
+		_( ArduinoMCU.readSerialLine(false) );
+		
+		
+		File p92 = new File("../fs/MOAFI.92B");
+		p92 = new File("../fs/MOAF.92B");
 
-//headlessBackup = !true;
+		int blen = (int)p92.length();
+		InputStream fis = new FileInputStream( p92 );
 
-      System.out.println("begin");
-	  _( ArduinoMCU.readSerialLine(false) );
-	  
-      
-      File p92 = new File("../fs/MOAFI.92B");
-	  p92 = new File("../fs/MOAF.92B");
-	  //p92 = new File("C:/vm_mnt/devl/TI_92/Fargo/backupsWfargo/back-fargo1/1-12/fargo.92b");
-
-      int blen = (int)p92.length();
-	  InputStream fis = new FileInputStream( p92 );
-
-	  	//byte[] head = new byte[86 + 2]; //+2 for size...
 		byte[] head = new byte[82]; 
 
-	  	fis.read(head, 0, head.length); // skip firsts ?? bytes
-	  	blen -= head.length;
+		fis.read(head, 0, head.length); // skip firsts ?? bytes
+		blen -= head.length;
 		blen -= 2; // - final CHKSUM
 
-    int d0 = blen / 256;
-    int d1 = blen % 256;
+		int d0 = blen / 256;
+		int d1 = blen % 256;
 
-	boolean archived = false;
-	boolean silent = true;
-	int sendingMode = -1;
-	int fileType = -1; // ready for PRGM & ASM
-      
-    _(blen+" bytes");
+		boolean archived = false;
+		boolean silent = true;
+		int sendingMode = -1;
+		int fileType = -1; // ready for PRGM & ASM
+		
+		_(blen+" bytes");
 
-	_("Enter to start");
-	kbd = new BufferedReader( new InputStreamReader( System.in ) );
-	kbd.readLine();
+		_("Enter to start");
+		kbd = new BufferedReader( new InputStreamReader( System.in ) );
+		kbd.readLine();
 
-	ArduinoMCU.writeByte( (byte)'b');
-	byte[] data = new byte[ 2 ];
-	data[0] = i2b( blen/256 );
-	data[1] = i2b( blen%256 );
-	ArduinoMCU.writeBytes(data);
+		ArduinoMCU.writeByte( (byte)'b');
+		byte[] data = new byte[ 2 ];
+		data[0] = i2b( blen/256 );
+		data[1] = i2b( blen%256 );
+		ArduinoMCU.writeBytes(data);
 
-	int blocCpt = 0;
-	long t0,t1;
-	t0 = System.currentTimeMillis();
+		int blocCpt = 0;
+		long t0,t1;
+		t0 = System.currentTimeMillis();
 
-	while( true ) {
-		int i = ArduinoMCU.readOneByte();
-		if ( i == 1 ) {
-			// send 512 bytes
-			int ll = fis.available();
-			if ( ll > 512 ) { ll = 512; }
-			else { ll -= 2; }  
-			byte[] dd = new byte[ll];
-			outprintln("Sending "+ll+" bytes ("+blocCpt+")");
-			int l = fis.read(dd, 0, dd.length);
-			ArduinoMCU.writeBytes(dd);
-			//_( readSerialLine(true) );
+		while( true ) {
+			int i = ArduinoMCU.readOneByte();
+			if ( i == 1 ) {
+				// send 512 bytes
+				int ll = fis.available();
+				if ( ll > 512 ) { ll = 512; }
+				else { ll -= 2; }  
+				byte[] dd = new byte[ll];
+				outprintln("Sending "+ll+" bytes ("+blocCpt+")");
+				int l = fis.read(dd, 0, dd.length);
+				ArduinoMCU.writeBytes(dd);
+				//_( readSerialLine(true) );
 
-			blocCpt++;
-			if ( ll < 512 ) { break; }
+				blocCpt++;
+				if ( ll < 512 ) { break; }
 
-		} else {
-			_( ArduinoMCU.readSerialLine(false) );
+			} else {
+				_( ArduinoMCU.readSerialLine(false) );
+			}
+
 		}
 
-	}
+		int i = ArduinoMCU.readOneByte();
+		t1 = System.currentTimeMillis();
 
-	int i = ArduinoMCU.readOneByte();
-	t1 = System.currentTimeMillis();
+		outprintln("Backup sent "+((t1-t0)/1000)+"sec");
 
-	outprintln("Backup sent "+((t1-t0)/1000)+"sec");
-
-
-
-// halt();
-
-
-      fis.close();
-      
-      System.out.println("finish");
-	  _( ArduinoMCU.readSerialLine(false) );
-      
-	  _("Enter to exit");
-	  
-	  kbd.readLine();
+		fis.close();
+		
+		System.out.println("finish");
+		_( ArduinoMCU.readSerialLine(false) );
+		
+		//   _("Enter to exit");
+		//   kbd.readLine();
+		Zzz(2000);
 
     } catch(Exception ex) {
       ex.printStackTrace();

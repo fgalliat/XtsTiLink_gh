@@ -254,6 +254,7 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
 
 int sendTiFile(bool autolaunch=false, bool fromSerial=false) {
   int i, postDelay=DEFAULT_POST_DELAY;
+  bool autolaunchNoEnter = false;
 
   // ==== preparing datas ====
   int fileType = FTYPE_TXT;
@@ -284,7 +285,9 @@ if ( fromSerial ) {
   fileName[nl] = 0x00;
 
   bool mode92p = serPort.read() == 1; // else ASM
-  autolaunch = serPort.read() == 1;
+  int autoLaunchMode = serPort.read();
+  autolaunch = autoLaunchMode > 0;
+  autolaunchNoEnter = autoLaunchMode == 2;
 
   if ( mode92p ) { fileType = FTYPE_BAS; }
   else { fileType = FTYPE_ASM; }
@@ -460,7 +463,9 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
     ti_sendKeyStroke( 0x0107 ); // CLEAR from TI92 manual p.484
     ti_sendKeyStrokes(fileName);
     ti_sendKeyStrokes((char*)"()");
-    ti_sendKeyStroke(0x0D); // ENTER
+    if ( !autolaunchNoEnter ) {
+      ti_sendKeyStroke(0x0D); // ENTER
+    }
   }
 
   return 0;
