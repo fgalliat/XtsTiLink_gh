@@ -166,7 +166,7 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
     result[6] = 0;
 		result[7] = 0;
 
-    int sum = 0;
+    uint16_t sum = 0;
 
     // head
     ti_send(result, 8);
@@ -205,19 +205,20 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
 
       //const int BLOC_LEN =128;
       //uint8_t D[BLOC_LEN]; 
-      const int BLOC_LEN =514;
+      const int BLOC_LEN =64;
       uint8_t* D = screen;
       int e;
       for (int i = 0; i < dataLen-2; i+=BLOC_LEN) { 
 
-       // request to send - handshake
-       serPort.write( 0x02 );
-       while( serPort.available() == 0 ) {}
-
         e = BLOC_LEN;
         if ( i+BLOC_LEN > dataLen-2 ) { e = (dataLen-2)-i; }
-        
+
+       // request to send - handshake
+       serPort.write( 0x02 );
+       while( serPort.available() == 0 ) {delay(1);}
+
         // even if ends w/ garbages
+       // serPort.readBytes( D, BLOC_LEN );
         serPort.readBytes( D, BLOC_LEN );
 
         for(int j=0; j < e; j++) { 
@@ -233,6 +234,7 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
       outprint(F("OUPS !!!"));
     } 
 
+    delay( DEFAULT_POST_DELAY/2 );
 		// 8+nameLength => 0
 		// 9+nameLength => 0
     sum &= 0xFFFF;
@@ -245,7 +247,7 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
     dtLen = finalLen;
 
     ti_send(result, 2);
-    delay( DEFAULT_POST_DELAY/2 );
+    delay( DEFAULT_POST_DELAY );
 
     DBUG(result, 2); // just to verify
 
@@ -273,18 +275,27 @@ int sendTiFile(bool autolaunch=false, bool fromSerial=false) {
 
 if ( fromSerial ) {
   // just after '\SP' ...
+
+  //while( serPort.available() == 0 ) {}
+  while( serPort.available() < 2 ) {delay(1);}
   initDatasLen = (serPort.read()*256)+serPort.read();
 
   fileName = (char*)malloc(32);
   memset(fileName, 0x00, 32);
   char ch;
   int nl = 0;
+  /*
   while( (ch = serPort.read()) != 0 ) {
     fileName[nl++] = ch;
   }
+  */
+  while( serPort.available() == 0 ) {}
+  nl = serPort.readBytesUntil(0x00, fileName, 31);
   fileName[nl] = 0x00;
 
+  while( serPort.available() == 0 ) {}
   bool mode92p = serPort.read() == 1; // else ASM
+  while( serPort.available() == 0 ) {}
   int autoLaunchMode = serPort.read();
   autolaunch = autoLaunchMode > 0;
   autolaunchNoEnter = autoLaunchMode == 2;
@@ -430,30 +441,30 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   uint8_t recv[4];
   
   // == ACK ==
-  ti_recv(recv, 4); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK")); return -1; }
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK")); return -1; }
   
   // == CTS ==
-  ti_recv(recv, 4); if ( recv[1] == 0x5a ) { outprintln(F("failed to read CTS")); return -1; }
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read CTS")); return -1; }
   
   // == ACK ==
   uint8_t B[4] = { 0x09, 0x56, 0x00, 0x00 };
   ti_send(B, 4);
-  delay(postDelay);
+  delay(postDelay/2);
   
   // == XDP == 
   TI_xdp(data, dataLen, sendingMode, silent, len, archived);
-  delay(postDelay);
+  delay(postDelay/2);
   
   // == ACK ==
-  ti_recv(recv, 4); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (2)")); return -1; }
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (2)")); return -1; }
   
   // == EOT ==
   uint8_t D[4] = { 0x09, 0x92, 0x00, 0x00 };
   ti_send(D, 4);
-  delay(postDelay);  
+  delay(postDelay/2);  
   
   // ACK ==
-  ti_recv(recv, 4); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (3)")); return -1; }
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (3)")); return -1; }
 
   outprintln(F("Var sent"));
   

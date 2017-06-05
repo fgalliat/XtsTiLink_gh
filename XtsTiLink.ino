@@ -85,16 +85,19 @@ void dummyMode();
 void setup() {
   __SCREEN_SEG_MEM = SCREEN_SEG_MEM;
 
+  ti_resetLines();
+
   pinMode(BTN, INPUT_PULLUP);
   pinMode(BTN2, INPUT_PULLUP);
   pinMode(BTN3, INPUT_PULLUP);
+  digitalWrite(13, LOW);
   
+  // init & clean serial port =======
   Serial.begin(115200);
-  ti_resetLines();
-  
-  //while( !Serial ) {delay(300);}
-
-  digitalWrite(13, HIGH);
+  //serPort.begin(19200);
+  serPort.flush();
+  while(serPort.available() > 0) { serPort.read(); }
+  // ================================
 }
 
   
@@ -103,24 +106,156 @@ void setup() {
     for (int i = 0; i < len; i++) {
       for (int j = 7; j >= 0; j--) {
         if (screen[i] & (1 << j)) {
-          Serial.write('#');
+          serPort.write('#');
         } else {
-          Serial.write('.');
+          serPort.write('.');
         }
       }
       if (i % (TI_SCREEN_WIDTH/8) == (TI_SCREEN_WIDTH/8)-1) { // 240/8 => 30 bytes
-        Serial.println();
+        serPort.println();
       }
     }
   }
  
 
 void reboot() {
-  ti_resetLines();
+  ti_resetLines(true);
   asm volatile ("  jmp 0");
 }
 
 #define DBUG_DUMMY true
+
+void dummyMode() {
+  int recvNb;
+  if (DBUG_DUMMY) serPort.println(F("DUMMY"));
+
+  ti_resetLines();
+
+  // see : https://internetofhomethings.com/homethings/?p=927
+      const int MAX_READ_LEN = 8;
+      //const int MAX_READ_LEN = 256;
+      memset(screen, 0x00, MAX_READ_LEN+1);
+      int fullPacketLen = 0;
+
+      int toRead;
+      int cpt=0;
+      int kc;
+
+      while(true) {
+        while ( (fullPacketLen = serPort.available()) > 0 ) {
+
+          // DONE : NO MORE delay() in this loop 
+
+          for(int i=0; i < fullPacketLen; i+=MAX_READ_LEN) {
+            memset(screen, 0x00, MAX_READ_LEN+1);
+
+            toRead = MAX_READ_LEN;
+            if ( i + MAX_READ_LEN > fullPacketLen ) {
+              toRead = fullPacketLen - i;
+            }
+            //serPort.readBytes( screen, toRead );
+
+            // read available datas
+            int toWrite = serPort.readBytes( screen, toRead );
+            toRead = toWrite;
+
+            if ( toWrite == 0 ) {  continue; }
+
+            // sends nb of bytes received
+            // requires @least v 1.1.0 of XtsTerm
+            recv[0] = toRead / 256; 
+            recv[1] = toRead % 256; 
+            ti_send( recv, 2 );
+            delay(DEFAULT_POST_DELAY/2);
+
+            // send data packet
+            ti_send( screen, toRead );
+            memset(recv, 0x00, 10);
+
+            // waits for 0x06 xtsTerm Handshake (0x06)
+            // require XtsSterm 1.0.C
+            cpt=0;
+            while( ti_recv(recv, 1) != 0 && recv[0] != 0x06 ) {
+              if ( cpt == 100 ) { break; }
+              cpt++;
+            }
+          } // end of for
+
+          delay(DEFAULT_POST_DELAY/2);
+
+        } // end while Serial.available()
+
+        recvNb = ti_recv(recv, 2);
+        if ( recvNb == 0 ) {
+          if ( recv[0] == 'X' && recv[1] == ':' ) {
+            recvNb = ti_recv(recv, 4+1);
+            //serPort.print( recvNb ); serPort.print( F(" ") ); serPort.print( recv[0] ); serPort.print( F(" ") ); serPort.println( recv[1] ); 
+            //if ( recvNb == 0 && recv[0] == 0xFF && recv[1] == 'e' ) {
+            if ( recvNb == 0 && recv[0] == '?' && recv[1] == 'e' ) {
+              // X:end\n -> end of serial session
+              // break;
+              if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
+              reboot();
+              return;
+            } 
+          } else if ( recv[0] == 'K' && recv[1] == ':' ) {
+              //K:<code>\n
+
+              // found key 97       a
+              // found key 56       num
+              // found key 338      arrow
+              // found key 344      arrow
+              // found key 264      Esc
+              // found key 4360     2nd + Esc => Quit
+              // found key 257      backspace
+
+              ti_recv(recv, 8);
+              memset(intValue, 0x00, 10);
+              for(int i=0; i < 8; i++) {
+                if ( recv[i] == '\n' ) { break; }
+                intValue[i] = recv[i];
+              }
+              kc = atoi( intValue );
+              //Serial.print("found key ["); Serial.print(kc); Serial.print("] ("); Serial.print( (char)kc ); Serial.print(") \n");
+              if ( kc == 264 ) { 
+                // Esc
+                kc = 27; 
+                serPort.write( kc );
+              }
+              else if ( kc == 13 ) { 
+                // Enter
+                kc = 10; 
+                serPort.write( kc );
+              }
+              else if ( kc == 257 ) { 
+                // BackSpace
+                serPort.write( 8 );
+                serPort.write( 32 );
+                serPort.write( 8 );
+              }
+              else if ( kc == 4360 ) {
+                // 2nd + Quit
+                // - dirty trap -
+                if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
+                ti_recv(recv, 2+4+1);
+                reboot();
+                return;
+              }
+              else {
+                serPort.print( (char)kc );
+              }
+          } // end of key read
+
+        } // end if recvNb == 0
+        delay(5);
+      } // end while dummy
+
+      if (DBUG_DUMMY) serPort.println(F("LEAVING DUMMY MODE"));
+}
+
+
+
+
 
 void loop() {
   //delay(500);
@@ -140,197 +275,90 @@ void loop() {
       // X:begin\n
       // dummy serial mode : XtsTerm.92p
 
-      if (DBUG_DUMMY) serPort.println(F("DUMMY"));
-
-      // see : https://internetofhomethings.com/homethings/?p=927
-      //const int MAX_READ_LEN = 32;
-      const int MAX_READ_LEN = 512;
-      memset(screen, 0x00, MAX_READ_LEN+1);
-
-      int fullPacketLen = 0;
-
-      while(true) {
-        while ( (fullPacketLen = serPort.available()) > 0 ) {
-
-          // DONE : NO MORE delay() in this loop 
-
-          for(int i=0; i < fullPacketLen; i+=MAX_READ_LEN) {
-            memset(screen, 0x00, MAX_READ_LEN+1);
-
-            int toRead = MAX_READ_LEN;
-            if ( i + MAX_READ_LEN > fullPacketLen ) {
-              toRead = fullPacketLen - i;
-            }
-            serPort.readBytes( screen, toRead );
-
-            // sends nb of bytes received
-            // requires @least v 1.1.0 of XtsTerm
-            recv[0] = toRead / 256; 
-            recv[1] = toRead % 256; 
-            ti_send( recv, 2 );
-
-            // send data packet
-            ti_send( screen, toRead );
-            memset(recv, 0x00, 10);
-
-            // waits for 0x06 xtsTerm Handshake (0x06)
-            // require XtsSterm 1.0.C
-            while( ti_recv(recv, 1) != 0 && recv[0] != 0x06 ) {
-            }
-          } // end of for
-
-          // delay(DEFAULT_POST_DELAY/2);
-
-        } // end while Serial.available()
-
-        recvNb = ti_recv(recv, 2);
-        if ( recvNb == 0 && recv[0] == 'X' && recv[1] == ':' ) {
-          recvNb = ti_recv(recv, 4+1);
-          serPort.print( recvNb ); serPort.print( F(" ") ); serPort.print( recv[0] ); serPort.print( F(" ") ); serPort.println( recv[1] ); 
-          //if ( recvNb == 0 && recv[0] == 0xFF && recv[1] == 'e' ) {
-          if ( recvNb == 0 && recv[0] == '?' && recv[1] == 'e' ) {
-            // X:end\n -> end of serial session
-            // break;
-            if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
-            reboot();
-            return;
-          } 
-        } else if ( recvNb == 0 && recv[0] == 'K' && recv[1] == ':' ) {
-            //K:<code>\n
-
-            // found key 97       a
-            // found key 56       num
-            // found key 338      arrow
-            // found key 344      arrow
-            // found key 264      Esc
-            // found key 4360     2nd + Esc => Quit
-            // found key 257      backspace
-
-            ti_recv(recv, 8);
-            memset(intValue, 0x00, 10);
-            for(int i=0; i < 8; i++) {
-              if ( recv[i] == '\n' ) { break; }
-              intValue[i] = recv[i];
-            }
-            int kc = atoi( intValue );
-            //Serial.print("found key ["); Serial.print(kc); Serial.print("] ("); Serial.print( (char)kc ); Serial.print(") \n");
-            if ( kc == 264 ) { 
-              // Esc
-              kc = 27; 
-              serPort.write( kc );
-            }
-            else if ( kc == 13 ) { 
-              // Enter
-              kc = 10; 
-              serPort.write( kc );
-            }
-            else if ( kc == 257 ) { 
-              // BackSpace
-              serPort.write( 8 );
-              serPort.write( 32 );
-              serPort.write( 8 );
-            }
-            else if ( kc == 4360 ) {
-              // 2nd + Quit
-              // - dirty trap -
-              if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
-              ti_recv(recv, 2+4+1);
-              reboot();
-              return;
-            }
-            else {
-              serPort.print( (char)kc );
-            }
-
-        }
-        delay(1);
-      } // end while
+      dummyMode();
     }
-  } else 
-  // from my Basic/asmrt program...
-  if ( recvNb == 0 && recv[0] == 'K' && recv[1] == ':' ) {
-    //K:<code>\n
+  }  
+  // // from my Basic/asmrt program...
+  // else if ( recvNb == 0 && recv[0] == 'K' && recv[1] == ':' ) {
+  //   //K:<code>\n
 
-    // found key 97       a
-    // found key 56       num
-    // found key 338      arrow
-    // found key 344      arrow
-    // found key 264      Esc
-    // found key 4360     2nd + Esc => Quit
+  //   // found key 97       a
+  //   // found key 56       num
+  //   // found key 338      arrow
+  //   // found key 344      arrow
+  //   // found key 264      Esc
+  //   // found key 4360     2nd + Esc => Quit
 
-    ti_recv(recv, 8);
-    memset(intValue, 0x00, 10);
-    for(int i=0; i < 8; i++) {
-      if ( recv[i] == '\n' ) { break; }
-      intValue[i] = recv[i];
-    }
-    int kc = atoi( intValue );
-    Serial.print("found key ["); Serial.print(kc); Serial.print("] ("); Serial.print( (char)kc ); Serial.print(") \n");
-  } else if ( recvNb == 0 && recv[0] == 't' && recv[1] == ':' /*&& recv[2] == '\n'*/ ) {
-    // TODO : manage CTS requests
-    ti_recv(recv, 1); // '\n'
-    // time request
-    ti_send((uint8_t*)"23:26:55",8);
-  } else if ( recvNb == 0 && recv[0] != 0x00 && recv[0] != 0xFF ) {
-    Serial.print("found chars ["); Serial.print( (char)recv[0] );Serial.print( (char)recv[1] ); Serial.print("] \n");
-  }
+  //   ti_recv(recv, 8);
+  //   memset(intValue, 0x00, 10);
+  //   for(int i=0; i < 8; i++) {
+  //     if ( recv[i] == '\n' ) { break; }
+  //     intValue[i] = recv[i];
+  //   }
+  //   int kc = atoi( intValue );
+  //   Serial.print("found key ["); Serial.print(kc); Serial.print("] ("); Serial.print( (char)kc ); Serial.print(") \n");
+  // } else if ( recvNb == 0 && recv[0] == 't' && recv[1] == ':' /*&& recv[2] == '\n'*/ ) {
+  //   // TODO : manage CTS requests
+  //   ti_recv(recv, 1); // '\n'
+  //   // time request
+  //   ti_send((uint8_t*)"23:26:55",8);
+  // } else if ( recvNb == 0 && recv[0] != 0x00 && recv[0] != 0xFF ) {
+  //   Serial.print("found chars ["); Serial.print( (char)recv[0] );Serial.print( (char)recv[1] ); Serial.print("] \n");
+  // }
 
-  else if (Serial.available() > 0) {
-    int len = Serial.available();
-    if ( len > 0 ) {
+  //else 
+  
+  if (serPort.available() > 0) {
+    //int len = Serial.available();
+    //if ( len > 0 ) {
 
-      if ( Serial.peek() == 'b' ) {
-        Serial.read();
-        int d0 = Serial.read();
-        int d1 = Serial.read();
+      if ( serPort.peek() == 'b' ) {
+        serPort.read();
+        int d0 = serPort.read();
+        int d1 = serPort.read();
         // doesn't fit in an int !!!!!!
         // 39350 bytes
         uint16_t blen = (d0*256)+d1;
         sendAbackup(blen);
+
+        reboot();
+        return;
       }
 
-      // else if (Serial.peek() == 'D') {
-      //   Serial.read();
-      //   dummyMode();
-      // } else
-      else if (Serial.peek() == '\\') {
-        Serial.read();
-        if (Serial.read() == 'S') {
-          if (Serial.peek() == 'R') {
-            Serial.read();
+      else if (serPort.peek() == '\\') {
+        serPort.read();
+        if (serPort.peek() == 'S') {
+          serPort.read();
+          if (serPort.peek() == 'R') {
+            serPort.read();
             reboot();
-          } else if (Serial.peek() == 'B') {
-            Serial.read();
-            int d0 = Serial.read();
-            int d1 = Serial.read();
-
-            // doesn't fit in an int !!!!!!
-            // 39350 bytes
-            //uint16_t blen = (d0*256)+d1;
-            //delay(500);
-
-            outprintln("NO MORE SUPPORTED");
-            // digitalWrite(13, LOW);
-            // ti_sendbackup(blen);
-            // digitalWrite(13, HIGH);
-
-            return;
-          } else {
-            Serial.read();
+          } else if (serPort.peek() == 'P') {
+            serPort.read();
             // send PRGM
             sendTiFile(false, true);
+
+            reboot();
+            return;
+          }
+          else if (serPort.peek() == 'D') {
+            serPort.read();
+            // DUMMY commanded mode
+            dummyMode();
+            reboot();
+            return;
           }
         } else {
-          if (Serial.read() == 'B') {
+          if (serPort.peek() == 'B') {
+            serPort.read();
             // NOT fully CRETIFIED
             ti_receiveBackup();
           }
         }
       }
-    }
+    //}
 
-    uint8_t st[1];
-    for(int i=0; i < len; i++) { st[0] = (uint8_t)Serial.read(); ti_send(st,1); }
+    // uint8_t st[1];
+    // for(int i=0; i < len; i++) { st[0] = (uint8_t)Serial.read(); ti_send(st,1); }
     ti_resetLines();
   }
 
@@ -348,7 +376,7 @@ void loop() {
   if (PRESSED != digitalRead(BTN)) {
     return;
   }
-  Serial.println("go");
+  serPort.println("go");
   
   ti_resetLines();
   
@@ -363,7 +391,7 @@ void loop() {
   // recvNb is always 0 !!! --> returns the available/remaining bytes ...
   recvNb = ti_recv(recv, 4); // ? 89 15 00 0F ? <TI92> <?> <LL> <HH> => 00 0F => 0F 00 = 3840 screen mem size
   if ( recvNb != 0 ) {
-    Serial.println("TI did not ACK'ed, abort");
+    serPort.println("TI did not ACK'ed, abort");
     return;
   }
   
@@ -381,7 +409,7 @@ void loop() {
   data[1] = REP_OK;
   ti_send(data, 4); // Arduino's ACK
   delay(50);
-  Serial.println("go 3");
+  serPort.println("go 3");
   
 }
 

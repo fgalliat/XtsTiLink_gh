@@ -82,7 +82,7 @@ int x = 0, y = 8;
 void cls() {
 	moa_cls();
 	y=8; x = 0;
-	DrawStr(0, 0, "XtsTiTerm 1.1.9", A_NORMAL);
+	DrawStr(0, 0, "XtsTiTerm 1.1.G", A_NORMAL);
 }
 
 void br() {
@@ -114,6 +114,9 @@ void println(char* str, int len) {
 }
 
 
+char bytes[512];
+int cursor = 0;
+
 void disp(char* str, int len) {
   if ( len == 0 )	{
     return;
@@ -123,9 +126,9 @@ void disp(char* str, int len) {
   	len = strlen( str );
   }
 	
-  char bytes[len+1];
+  //char bytes[len+1];
   memset(bytes, 0x00, len+1);
-  int cursor = 0;
+  cursor = 0;
 
   //v2 of impl.	
   for(int i=0; i < len; i++) {
@@ -139,6 +142,7 @@ void disp(char* str, int len) {
 	  		cursor = 0;
   		}
   	}
+  	/*
   	else if (str[i] == 27 && len > i+1 && str[i+1] == '[') {
   		// this is a VT100 ESCAPE Cmd
   		if ( len > i+3 && str[i+2] == '2' && str[i+3] == 'J' ) {
@@ -157,6 +161,7 @@ void disp(char* str, int len) {
 	  		bytes[ cursor++ ] = str[i];
   		}
   	}
+  	*/
   	else {
 	  	if ( x + (cursor*FONT_WIDTH) >= SCREEN_WIDTH-10 ) {
 	  		println( bytes, cursor );
@@ -238,17 +243,23 @@ void _main(void) {
 		 	} else {
 		 		
 		 	  // 2 bytes for length
-		 		inLength = (int)inLengthBuf[0] * 256;	
-		 		inLength += (int)inLengthBuf[1];
+		 		inLength = (unsigned int)inLengthBuf[0] * 256;	
+		 		inLength += (unsigned int)inLengthBuf[1];
 		 		
 		 		if ( inLength > 0 ) {
 					memset(inputBuf, 0x00, 512+1);
-	//			sprintf( KEYval, "%d >", inLength );
-	//			println( KEYval, strlen( KEYval ) );
-			 		LIO_RecvData(inputBuf,inLength,0); // wait infinitly
+	
+				//sprintf( KEYval, "%d >", inLength );
+				//println( KEYval, strlen( KEYval ) );
+	
+	// TODO : BETTER (bytes still in buffer)
+	if ( inLength > 512 ) {
+		inLength = 512;
+	}
+	
+			 		LIO_RecvData(inputBuf,inLength,5); // wait 1sec
 			 		disp( inputBuf, inLength );
 				}
-
 		 		
 		 		LIO_SendData(HANDSHAKEseq,1);
 		 	}

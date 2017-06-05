@@ -50,6 +50,13 @@ https://github.com/fgalliat/XtsTiLink_gh
    > TIProgramSender
    > TIBackupSender
 
- - make a Serial Console test w/ RPI-0 (remember to protected RPI RX pin) /dev/ttyACM0
-   -> don't forget to protected RX (1KR)
+ - make a Serial Console test w/ RPI-0 (remember to protected RPI RX pin) /dev/ttyS0
+   -> don't forget to protected RX (1KR + 2KR)
    
+ - Teensy 3.2 set SCK on PIN 14 instead of 13
+ 	void setup() {
+	  //SPI.setSCK(14);       // SCK on pin 14
+	  SPI.setSCK(13);       // SCK on pin 13
+	  SPI.setMOSI(11);      // MOSI on pin 11
+	  SPI.begin();
+	}

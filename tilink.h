@@ -48,9 +48,9 @@
 
 // ------------------------------------------------------------
 
-static void ti_resetLines();
+static void ti_resetLines(bool reboot);
 static int ti_send(uint8_t *data, uint32_t len);
-static int ti_recv(uint8_t *data, uint32_t len);
+static int ti_recv(uint8_t *data, uint32_t len, bool wait);
 
 // ------------------------------------------------------------
 
@@ -61,10 +61,14 @@ void DBUG(uint8_t* data, int len) {
    serPort.print( "\n" );
 }
 
-void __resetTILines() {
+void __resetTILines(bool reboot=false) {
   pinMode(TIring, INPUT);           // set pin to input
-  digitalWrite(TIring, HIGH);       // turn on pullup resistors
   pinMode(TItip, INPUT);            // set pin to input
+  if (reboot) {
+    digitalWrite(TIring, LOW);       // for reset purposes
+    digitalWrite(TItip, LOW);        // for reset purposes
+  }
+  digitalWrite(TIring, HIGH);       // turn on pullup resistors
   digitalWrite(TItip, HIGH);        // turn on pullup resistors
 }
 
@@ -178,9 +182,16 @@ static int __par_get(uint8_t *data, uint32_t len) {
   return 0;
 }
 
-static void ti_resetLines() { __resetTILines(); }
+static void ti_resetLines(bool reboot=false) { __resetTILines(reboot); }
 static int ti_send(uint8_t *data, uint32_t len) { return __par_put( data, len ); }
-static int ti_recv(uint8_t *data, uint32_t len) { return __par_get( data, len ); }
+static int ti_recv(uint8_t *data, uint32_t len, bool wait=false) { 
+  if (!wait) return __par_get( data, len ); 
+  else {
+    int res = -1;
+    while ((res=__par_get( data, len )) !=0) { delay(1); }
+    return res;
+  }
+}
 
 // =================================================================
 

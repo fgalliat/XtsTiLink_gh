@@ -57,7 +57,7 @@ _("Enter to start");
 
       System.out.println("begin");
 	     
-		ArduinoMCU.writeBytes( new byte[] { '\\', 'R', 'B' } );
+		ArduinoMCU.writeBytes( new byte[] { (byte)'\\', (byte)'R',(byte) 'B' } );
  _("waits");
       _( ArduinoMCU.readSerialLine(true) );
 
@@ -136,7 +136,10 @@ static int min(int a, int b) { return a < b ? a : b; }
 	  kbd = new BufferedReader( new InputStreamReader( System.in ) );
 	  if (kbdWait) kbd.readLine();
 
-      ArduinoMCU.writeBytes( new byte[] { '\\', 'S', 'P', (byte)d0, (byte)d1 } );
+      ArduinoMCU.writeBytes( new byte[] { (byte)'\\', (byte)'S', (byte)'P' } );
+	  ArduinoMCU.delay(5);
+	  ArduinoMCU.writeBytes( new byte[] { (byte)d0, (byte)d1 } );
+	  ArduinoMCU.delay(5);
 	  ArduinoMCU.writeBytes( varName.getBytes() );
 	  ArduinoMCU.writeByte( (byte)0x00 );
 
@@ -153,7 +156,7 @@ static int min(int a, int b) { return a < b ? a : b; }
 		  // wait for '0x01' ready to send
       	int ch = ArduinoMCU.readOneByte();
       	
-      	_( ch );
+      	_( ""+ch );
       	
 		long t0,t1;
 		t0 = System.currentTimeMillis();
@@ -163,18 +166,20 @@ static int min(int a, int b) { return a < b ? a : b; }
 			ArduinoMCU.writeByte((byte)0x00); // ACK
 
 			//final int BLOC_LEN = 128;
-			final int BLOC_LEN = 514;
+			final int BLOC_LEN = 64;
 			byte[] data = new byte[BLOC_LEN]; int e;
       		for(int j=0; j < blen; j+=BLOC_LEN) {
 
 				e = BLOC_LEN;
 				if ( j+BLOC_LEN > blen ) { e = blen-j; }
+				for(int i=0; i < BLOC_LEN; i++) { data[i] = 0; }
 
 				int re = fis.read(data, 0, e);
+				_("e="+e+" Vs re="+re);
 
 				// own cts
 				ch = ArduinoMCU.readOneByte();
-				if ( ch != 2 ) { _("Oups2"); break; }
+				//if ( ch != 2 ) { _("Oups2 ("+ (char)ch +")"); _( ArduinoMCU.readSerialLine(!true) ); break; }
 
       			ArduinoMCU.writeBytes( data ); // beware of end of file
       		} 
