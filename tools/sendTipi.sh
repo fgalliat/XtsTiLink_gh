@@ -1,0 +1,1 @@
+scp /vm_mnt/devl/TI_92/Arduino/XtsTiLink/devl4ti/test_gcc4ti_1/xtsterm.92p root@192.168.1.16:/vm_mnt/XtsTiLink/devl4ti/test_gcc4ti_1/

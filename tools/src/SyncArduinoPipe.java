@@ -10,6 +10,8 @@ public SyncArduinoPipe(InputStream istrm) {
       //ostrm_ = ostrm;
   }
 
+  public static Object WRITE_LOCKER = "coucou";
+
   public void run() {
       try {
           //final byte[] buffer = new byte[1024];
@@ -18,14 +20,16 @@ public SyncArduinoPipe(InputStream istrm) {
           for (int length = 0; (length = istrm_.read(buffer)) != -1; )
           {
               if ( length > 0 ) {
-                //ostrm_.write(buffer, 0, length);
-                // byte[] buff2 = new byte[ length ];
-                // System.arraycopy(buffer, 0, buff2, 0, length);
-                // //System.out.print(">"); System.out.write(buff2); System.out.println("<");
-                // ArduinoMCU.writeBytes(buff2);
+                  synchronized(WRITE_LOCKER) {
+                    //ostrm_.write(buffer, 0, length);
+                    // byte[] buff2 = new byte[ length ];
+                    // System.arraycopy(buffer, 0, buff2, 0, length);
+                    // //System.out.print(">"); System.out.write(buff2); System.out.println("<");
+                    // ArduinoMCU.writeBytes(buff2);
 
-                ArduinoMCU.writeBytes(buffer);
-                ArduinoMCU.delay(5);
+                    ArduinoMCU.writeBytes(buffer);
+                    ArduinoMCU.delay(2);
+                  }
               }
           }
       }

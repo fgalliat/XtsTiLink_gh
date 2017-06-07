@@ -32,7 +32,7 @@ serialPort.addEventListener(new SerialPortReader());
     //new Thread(new SyncPipe(p.getErrorStream(), System.err)).start();
     //new Thread(new SyncPipe(p.getInputStream(), System.out)).start();
 
-    //new Thread(new SyncArduinoPipe(p.getErrorStream())).start();
+    new Thread(new SyncArduinoPipe(p.getErrorStream())).start();
     new Thread(new SyncArduinoPipe(p.getInputStream())).start();
     stdin = new PrintWriter(p.getOutputStream());
 
@@ -58,21 +58,6 @@ serialPort.addEventListener(new SerialPortReader());
 
     ArduinoMCU.delay(500);
 
-// // new Thread() { public void run() { try {
-
-// //     String l = null;
-// //     while( (l = ArduinoMCU.readLine()) != null ) {
-// //         stdin.println( l );
-// //         if ( l.trim().equals("logout") ) {
-// //             break;
-// //         }
-// //         ArduinoMCU.delay(100);
-// //     }
-
-//     // write any other commands you want here
-//     stdin.close();
-// } catch(Exception ex) { ex.printStackTrace(); }
-// } }.start();
 
     int returnCode = p.waitFor();
     System.out.println("Return code = " + returnCode);

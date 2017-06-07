@@ -82,7 +82,7 @@ int x = 0, y = 8;
 void cls() {
 	moa_cls();
 	y=8; x = 0;
-	DrawStr(0, 0, "XtsTiTerm 1.1.G", A_NORMAL);
+	DrawStr(0, 0, "XtsTiTerm 1.1.Iv", A_NORMAL);
 }
 
 void br() {
@@ -142,10 +142,15 @@ void disp(char* str, int len) {
 	  		cursor = 0;
   		}
   	}
-  	/*
+  	
   	else if (str[i] == 27 && len > i+1 && str[i+1] == '[') {
   		// this is a VT100 ESCAPE Cmd
-  		if ( len > i+3 && str[i+2] == '2' && str[i+3] == 'J' ) {
+  		
+  		if ( len > i+2 && str[i+2] == 'J' ) {
+  			cls();
+  			i+=4;
+  		} else if ( len > i+3 && str[i+2] == '2' && str[i+3] == 'J') {
+  			// not tested
   			cls();
   			i+=4;
   		} else if ( len > i+3 && str[i+2] >= '0' && str[i+2] <= '9' ) {
@@ -161,7 +166,7 @@ void disp(char* str, int len) {
 	  		bytes[ cursor++ ] = str[i];
   		}
   	}
-  	*/
+  	
   	else {
 	  	if ( x + (cursor*FONT_WIDTH) >= SCREEN_WIDTH-10 ) {
 	  		println( bytes, cursor );
