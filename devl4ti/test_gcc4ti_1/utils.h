@@ -1,3 +1,4 @@
+#define bool unsigned char
 #define true 1
 #define false 0
 
@@ -30,6 +31,8 @@ short GetKeyInput(void)
   }
 }
 
+// =========================================================================
+
 //tios::globals		equ	tios@001C
 //tios::main_lcd		equ	tios::globals+$0000	; $F00 bytes
 //LCD_MEM			equ	tios::main_lcd
@@ -37,9 +40,36 @@ short GetKeyInput(void)
 #define LCD_MEM tios__001C
 #define LCD_MEM_SIZE 0x0F00
 
-void moa_cls() {
+void xts_cls() {
   memset( &LCD_MEM, 0x00, LCD_MEM_SIZE);	
 }
+
+// ex. yStart = topMost line
+//     nbOfLines = 1 // will scroll-up by one line
+void xts_scrollup(int yStart, int nbOfLines, bool clearRemaining) {
+	
+	int srcOffset = (yStart*SCREEN_WIDTH/8); // 1bpp
+	int len       = ((SCREEN_HEIGHT-(yStart+nbOfLines))*SCREEN_WIDTH/8); // 1bpp
+	int dstOffset = ((yStart+nbOfLines)*SCREEN_WIDTH/8); // 1bpp
+
+	unsigned char* lcd = (unsigned char*)&LCD_MEM;
+	
+	for(int i= 0; i < len; i++) {
+		lcd[ i + srcOffset ] = lcd[ i + dstOffset ];
+	}
+	
+	if ( clearRemaining ) {
+		
+	  /*
+		for(int i= len; i < LCD_MEM_SIZE; i++) {
+			lcd[ i+dstOffset ] = 0x00;
+		}
+		*/
+	}
+
+}
+
+// =========================================================================
 
 // The LIO functions in the TI-92 ROM functions are not exported by Fargo.
 unsigned short (*LIO_SendData) (const void *src, unsigned long size); 

@@ -16,7 +16,9 @@ public SyncArduinoPipe(InputStream istrm) {
       try {
           //final byte[] buffer = new byte[1024];
           //final byte[] buffer = new byte[32];
-          final byte[] buffer = new byte[1];
+          //final byte[] buffer = new byte[1];
+          final byte[] buffer = new byte[16];
+
           for (int length = 0; (length = istrm_.read(buffer)) != -1; )
           {
               if ( length > 0 ) {
@@ -27,8 +29,18 @@ public SyncArduinoPipe(InputStream istrm) {
                     // //System.out.print(">"); System.out.write(buff2); System.out.println("<");
                     // ArduinoMCU.writeBytes(buff2);
 
-                    ArduinoMCU.writeBytes(buffer);
-                    ArduinoMCU.delay(2);
+                    //ArduinoMCU.writeBytes(buffer);
+                    //ArduinoMCU.delay(buffer.length*10);
+                    for(int i=0; i < length; i++) {
+                        ArduinoMCU.writeByte(buffer[i]);
+                        if ( buffer[i] == (byte)'\n') {
+                            //ArduinoMCU.delay(4);
+                            ArduinoMCU.delay(3);
+                        } else {
+                            ArduinoMCU.delay(1);
+                        }
+                    }
+
                   }
               }
           }
