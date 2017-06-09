@@ -40,20 +40,20 @@ short GetKeyInput(void)
 #define LCD_MEM tios__001C
 #define LCD_MEM_SIZE 0x0F00
 
+volatile unsigned char* lcd = (unsigned char*)&LCD_MEM;
+
 void xts_cls() {
-  memset( &LCD_MEM, 0x00, LCD_MEM_SIZE);	
+  memset( lcd, 0x00, LCD_MEM_SIZE);	
 }
 
 // ex. yStart = topMost line
 //     nbOfLines = 1 // will scroll-up by one line
 void xts_scrollup(int yStart, int nbOfLines, bool clearRemaining) {
 	
-	int srcOffset = (yStart*SCREEN_WIDTH/8); // 1bpp
-	int len       = ((SCREEN_HEIGHT-(yStart+nbOfLines))*SCREEN_WIDTH/8); // 1bpp
-	int dstOffset = ((yStart+nbOfLines)*SCREEN_WIDTH/8); // 1bpp
+	volatile int srcOffset = (yStart*SCREEN_WIDTH/8); // 1bpp
+	volatile int len       = ((SCREEN_HEIGHT-(yStart+nbOfLines))*SCREEN_WIDTH/8); // 1bpp
+	volatile int dstOffset = ((yStart+nbOfLines)*SCREEN_WIDTH/8); // 1bpp
 
-	unsigned char* lcd = (unsigned char*)&LCD_MEM;
-	
 	for(int i= 0; i < len; i++) {
 		lcd[ i + srcOffset ] = lcd[ i + dstOffset ];
 	}
@@ -68,6 +68,55 @@ void xts_scrollup(int yStart, int nbOfLines, bool clearRemaining) {
 	}
 
 }
+
+void xts_drawHorizLine(int x, int y, int x2, bool black) {
+  volatile bool x1strict = x %8 == 0;
+  volatile bool x2strict = x2%8 == 0;
+
+	volatile int plainX1 = x /8 + ( !x1strict ? 1 : 0 );
+	volatile int plainX2 = x2/8 - ( !x2strict ? 1 : 0 );
+	
+	if ( plainX1 > plainX2 ) {
+		volatile int tmp = plainX1;
+		plainX1 = plainX2;
+		plainX2 = tmp;
+	}
+	
+	volatile int plainY  = (y*SCREEN_WIDTH/8);
+	
+	// draw 8pixels strict line
+	volatile unsigned char color = black ? 0xFF : 0x00;
+	for(volatile int xx = plainX1; xx <= plainX2; xx++) {
+		lcd[ plainY + xx ] = color;
+	}
+	
+	if ( !x1strict ) {
+		color = 0x00;
+		for(volatile int bit=0; bit < 8; bit++) {
+			if ( bit >= x%8 ) {
+				color += 1 << (7-x);
+			}
+		}
+		lcd[ plainY + plainX1-1 ] = color;
+	}
+	
+	if ( !x2strict ) {
+		color = 0x00;
+		for(volatile int bit=0; bit < 8; bit++) {
+			if ( bit >= x%8 ) {
+				color += 1 << (x);
+			}
+		}
+		lcd[ plainY + plainX2+0 ] = color;
+	}
+	
+}
+
+// =========================================================================
+
+enum Timers{USER1_TIMER=1,BATT_TIMER=1,APD_TIMER=2,LIO_TIMER=3,CURSOR_TIMER=4,MISC_TIMER=5,USER_TIMER=6};
+
+
 
 // =========================================================================
 

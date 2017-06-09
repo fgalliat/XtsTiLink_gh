@@ -32,10 +32,6 @@ serialPort.addEventListener(new SerialPortReader());
     //new Thread(new SyncPipe(p.getErrorStream(), System.err)).start();
     //new Thread(new SyncPipe(p.getInputStream(), System.out)).start();
 
-    new Thread(new SyncArduinoPipe(p.getErrorStream())).start();
-    new Thread(new SyncArduinoPipe(p.getInputStream())).start();
-    stdin = new PrintWriter(p.getOutputStream());
-
     System.out.println("Waiting prompt or enter");
     new Thread() { public void run() { 
         try {
@@ -49,6 +45,9 @@ serialPort.addEventListener(new SerialPortReader());
         ArduinoMCU.delay(500);
     }
 
+    new Thread(new SyncArduinoPipe(p.getErrorStream())).start();
+    new Thread(new SyncArduinoPipe(p.getInputStream())).start();
+    stdin = new PrintWriter(p.getOutputStream());
 
     // if ( bashMode ) {
     //   stdin.println("ls -lh ~");    

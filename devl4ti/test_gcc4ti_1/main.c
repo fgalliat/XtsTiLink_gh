@@ -4,8 +4,8 @@
 // Delete or comment out the items you do not need.
 #define COMMENT_STRING         "Xtase terminal."
 #define COMMENT_PROGRAM_NAME   "XtsTerm"
-#define COMMENT_VERSION_STRING "1.2"
-#define COMMENT_VERSION_NUMBER 1,2,0,0 /* major, minor, revision, subrevision */
+#define COMMENT_VERSION_STRING "1.4"
+#define COMMENT_VERSION_NUMBER 1,4,0,0 /* major, minor, revision, subrevision */
 #define COMMENT_AUTHORS        "Xtase - fgalliat"
 
 #define SCREEN_WIDTH 240
@@ -25,28 +25,25 @@
 #define LOCAL_DBGKEY false
 
 char chs[2] = {0x00, 0x00};
-//int x = 0, y = 8;
-
 
 
 #define byteBuffLen 128
-char bytes[byteBuffLen];
-int cursor = 0;
-bool textDirty = false;
+volatile char bytes[byteBuffLen+1];
+//volatile int cursor = 0;
+volatile bool textDirty = false;
 
-const char* PRGM_VERSION = "XtsTiTerm 1.3.5v";
+const char* PRGM_VERSION = "XtsTiTerm 1.4.3ov";
 
 void printSeg(char* str, int x, int y, int ll) {
   if ( ll <= 0 ) { return; }
-  
-	if ( x+(ll*FONT_WIDTH) >= SCREEN_WIDTH ) {
-	 // return ??
-	 return;	
-	}
 	if ( y < 0 ) { return; }
 	if ( y+FONT_HEIGHT >= SCREEN_HEIGHT ) { return; }
 
+	if ( x+(ll*FONT_WIDTH) >= SCREEN_WIDTH ) {
+	 //return;	
+	}
 	
+	// +8 is for appTitle line
   DrawStr(x, y+8, str, A_NORMAL);
 }
 
@@ -54,6 +51,8 @@ void printSeg(char* str, int x, int y, int ll) {
 void low_cls() {
 	xts_cls();
 	DrawStr(0, 0, PRGM_VERSION, A_NORMAL);
+	xts_drawHorizLine( 1, 6, SCREEN_WIDTH-2, true );
+	xts_drawHorizLine( 0, 6+1, SCREEN_WIDTH-0, true );
 }
 
 // _______________________________________________
@@ -67,10 +66,6 @@ void low_cls() {
 #define TTY_MAX_HEIGHT (ttyHeight - 5)
 
 #define ttyLen (ttyWidth * TTY_MAX_HEIGHT)
-
-
-
-
 char ttyMatrix[ttyLen];
 int ttyCursor = 0;
 
@@ -84,9 +79,7 @@ void tty_setCharAt(char ch, int addr) {
 	ttyMatrix[ addr ] = ch;
 }
 
-void tty_setChar(char ch, int x, int y) {
-	tty_setCharAt(ch, (y*ttyWidth)+x );
-}
+// void tty_setChar(char ch, int x, int y) { tty_setCharAt(ch, (y*ttyWidth)+x ); }
 
 int tty_cursX() { return ttyCursor % ttyWidth; }
 int tty_cursY() { return ttyCursor / ttyWidth; }
@@ -95,25 +88,27 @@ int tty_setCurs(int x, int y) { ttyCursor = (y*ttyWidth)+x; return ttyCursor; };
 
 
 void tty_scrollup() {
-	textDirty = false;
-  //low_cls();	
+	textDirty = false;	
 
 	// characters moving
   int base_addr = 0;
 	for(int i=0; i < TTY_MAX_HEIGHT-1; i++) {
 		base_addr = ( i*ttyWidth );
-	
   	for(int xx=0; xx < ttyWidth; xx++) {
   		ttyMatrix[ base_addr + xx ] = ttyMatrix[ ( base_addr+ttyWidth ) + xx ];
   	}
   }	
   
+  // last line clear
+  base_addr = ( (TTY_MAX_HEIGHT-1) * ttyWidth );
  	for(int xx=0; xx < ttyWidth; xx++) {
- 		ttyMatrix[ ( (TTY_MAX_HEIGHT-1)*ttyWidth ) + xx ] = 0x00;
+ 		ttyMatrix[ base_addr + xx ] = 0x00;
  	}
 
-	// screen moving
+	// screen moving (from y=8px)
  	xts_scrollup( 8, FONT_HEIGHT, true );
+ 	
+ 	// move cursor
  	tty_setCurs( 0, TTY_MAX_HEIGHT-1 );
  	
  	textDirty = true;
@@ -130,17 +125,14 @@ char line[ttyWidth+1];
 
 void render(int dirtyLineNb) {
   if ( !textDirty )	{ return; }
-
-	//low_cls(); -- done by the scrollup (equiv. code : not real cls)
 	
-  int cc=0;
+  int cc=0, xx=0;
 
 	for(int i=0; i < TTY_MAX_HEIGHT; i++) {
-
-		for(int xx=0; xx < ttyWidth; xx++) { line[xx] = 0x00; }
+		memset( line, 0x00, ttyWidth );
 
 		cc=0;
-		for(int xx=0; xx < ttyWidth; xx++) { 
+		for(xx=0; xx < ttyWidth; xx++) { 
 		  line[xx] = ttyMatrix[ (i*ttyWidth)+xx ];
 		  if ( ttyMatrix[ (i*ttyWidth)+xx ] == 0) { cc=xx; break; } 
 		}
@@ -149,33 +141,13 @@ void render(int dirtyLineNb) {
 		}
 
 		// kept because dirty can covers multiple lines
-	  if ( i >= dirtyLineNb )	{ break; }
+	  if ( i >= dirtyLineNb+1 )	{ break; }
 
 	}
 	
 	textDirty = false;
 }
 
-/*
-void render(int upTo) {
-  if ( !textDirty )	{ return; }
-
-	low_cls();
-  int cc=0;
-  char line[ttyWidth+1];
-	//for(int i=0; i < TTY_MAX_HEIGHT; i++) {
-	for(int i=0; i < upTo; i++) {
-		cc=0;
-		for(int xx=0; xx < ttyWidth; xx++) { 
-		  line[xx] = ttyMatrix[ (i*ttyWidth)+xx ];
-		  if ( ttyMatrix[ (i*ttyWidth)+xx ] == 0) { cc=xx; break; } 
-		}
-	  printSeg(line, 0, (i*FONT_HEIGHT), cc);
-	}
-	
-	textDirty = false;
-}
-*/
 
 void low_br() {
 	tty_setCharAt( 0x00, ttyCursor );
@@ -191,40 +163,32 @@ void low_br() {
 
 void disp(char* str, int len) {
   if ( len == 0 )	{ return; }
-  if ( len < 0 )  { len = strlen( str ); }
-  if ( len > byteBuffLen ) {
-  	len = byteBuffLen;
-  }
+  //if ( len < 0 )  { len = strlen( str ); }
+  //if ( len > byteBuffLen ) {
+  //	len = byteBuffLen;
+  //}
 
   //v3 of impl.	
   for(int i=0; i < len; i++) {
     if ( str[i] == 13 ) { continue; }	
+    
   	if ( str[i] == 10 ) {
-  		if ( tty_cursX() == 0 ) {
-  			low_br();
-  			// tmp
-  			//render( tty_cursY() );
-  		} else {
-  			low_br();
-  			render( tty_cursY() );
-  		}
+ 			low_br();
+			render( tty_cursY() );
   	}
-  	/*
+  	
   	else if (str[i] == 27 && len > i+1 && str[i+1] == '[') {
   		// this is a VT100 ESCAPE Cmd
   		
   		if ( len > i+2 && str[i+2] == 'J' ) {
   			cls();
-  			memset(bytes, 0x00, len+1);
-	  		cursor = 0;
-  			i+=3;
+	  		i+=3;
   		} else if ( len > i+3 && str[i+2] == '2' && str[i+3] == 'J') {
   			// not tested
   			cls();
-  			memset(bytes, 0x00, len+1);
-	  		cursor = 0;
   			i+=4;
   		} else if ( len > i+3 && str[i+2] >= '0' && str[i+2] <= '9' ) {
+  			i+=2;
 	  		// character attributes
 	  		// ex. ^[0m      end of char attribs
 	  		// ex. ^[05;01;32;44m 
@@ -232,32 +196,85 @@ void disp(char* str, int len) {
 	  		while( str[i] != 'm' && i < len ) { i++; }
 	  	} else {
 	  		i+=2;
-	  		bytes[ cursor++ ] = '^';
-	  		bytes[ cursor++ ] = '[';
-	  		bytes[ cursor++ ] = str[i];
+	  		ttyMatrix[ ttyCursor++ ] = '^';
+	  		ttyMatrix[ ttyCursor++ ] = '[';
+	  		for(; i < len; i++) {
+		  		ttyMatrix[ ttyCursor++ ] = str[i];
+	  		}
   		}
   	}
-  	*/
+  	
   	else {
   		
   		// auto wraps line
-  		ttyMatrix[ ttyCursor++ ] = str[i];
-  		ttyMatrix[ ttyCursor   ] = 0x00; // to keep clean lines
   		
-  		if ( ttyCursor >= ttyLen || tty_cursY() > TTY_MAX_HEIGHT ) {
+  		if ( str[i] == 0x09 ) { // TAB
+  		  ttyMatrix[ ttyCursor++ ] = ' ';
+  		  ttyMatrix[ ttyCursor++ ] = ' ';
+  		  ttyMatrix[ ttyCursor++ ] = ' ';
+  		  ttyMatrix[ ttyCursor++ ] = ' ';
+  		} else {
+	  		ttyMatrix[ ttyCursor++ ] = str[i];
+  		}		
+  		
+  		if ( ttyCursor >= ttyLen ) {
   			tty_scrollup();
   		}
+
+  		ttyMatrix[ ttyCursor   ] = 0x00; // to keep clean lines
   		
   	}
   	
  	}
- 	
- 	// tmp
- 	//render( tty_cursY() );
+
 }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// TODO : refactor
+void dispOneChar(char ch) {
+	if ( ch == '\r' ) { return; }
+	if ( ch == '\n' ) { 
+	  low_br();
+		render( tty_cursY() );
+	} else if ( ch == '\t' ) { 
+		ttyMatrix[ ttyCursor++ ] = ' ';
+  	ttyMatrix[ ttyCursor++ ] = ' ';
+  	ttyMatrix[ ttyCursor++ ] = ' ';
+  	ttyMatrix[ ttyCursor++ ] = ' ';
+	} else if ( ch == '\b' ) { 
+	  ttyMatrix[ ttyCursor   ] = 0x00;
+	} else if ( ch == (char)27 ) {
+		ttyMatrix[ ttyCursor++ ] = '^';
+	} else if ( ch == (char)3 ) { 
+		ttyMatrix[ ttyCursor++ ] = 'C';
+  	ttyMatrix[ ttyCursor++ ] = 't';
+  	ttyMatrix[ ttyCursor++ ] = 'l';
+  	ttyMatrix[ ttyCursor++ ] = '-';
+  	ttyMatrix[ ttyCursor++ ] = 'C';
+	} else {
+		ttyMatrix[ ttyCursor++ ] = ch;
+	}
+	
+	ttyMatrix[ ttyCursor   ] = 0x00; // to keep clean lines
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
 
 	char KEYval[8];
 	char HANDSHAKEseq[1] = { 0x06 }; 
+
+
+void sleepSec(int sec) {
+	//OSFreeTimer (USER_TIMER);
+	//OSRegisterTimer (USER_TIMER, sec*20);
+	//while (!OSTimerExpired (USER_TIMER));
+	
+	//OSTimerRestart(USER_TIMER);
+	//while (!OSTimerExpired (USER_TIMER));
+}
+
 
 
 // Main Function
@@ -311,51 +328,27 @@ void _main(void) {
   	// ,2 -> short ...	
 	 	//if ( LIO_RecvData(inByte,1,4) ) {
 	 		
-	 	// read from I/O
-	 	while(true) {
-	 		
-	 	  // reads packet length comming from Arduino
-			if ( LIO_RecvData(inLengthBuf,2,1) ) {
-		 		// failed	
-		 		
-		 		//if ( idleCpt++ > 1 ) {
-		 			render( tty_cursY() );
-		 		//	idleCpt = 0;
-		 		//}
-		 		
-		 		break;
-		 	} else {
-		 	  // 2 bytes for length
-		 		inLength = (unsigned int)inLengthBuf[0] * 256;	
-		 		inLength += (unsigned int)inLengthBuf[1];
-		 		
-		 		if ( inLength > 0 ) {
-					//memset(inputBuf, 0x00, byteBuffLen+1);
-	
-					//sprintf( KEYval, "%d >", inLength );
-					//println( KEYval, strlen( KEYval ) );
-		
-					// TODO : BETTER (bytes still in buffer)
-					if ( inLength > byteBuffLen ) {
-						inLength = byteBuffLen;
-					}
-	
-			 		LIO_RecvData(inputBuf,inLength,10); // wait 2sec - 1tick -> 1/20s
-			 		if (inLength < byteBuffLen) inputBuf[inLength] = 0x00;
-			 		disp( inputBuf, inLength );
-			 		
-			 		textDirty = true;
-				}
-		 		
-		 		LIO_SendData(HANDSHAKEseq,1);
-		 	}
-	 	}
+ 		if ( LIO_RecvData(inputBuf,1,1) == 0 ) {
+			//disp( inputBuf, 1 );
+			dispOneChar( inputBuf[0] );
+			textDirty = true;
+ 		} else {
+ 			
+ 		  //if ( idleCpt++ > 2 ) {
+ 			  render( tty_cursY() );
+ 			  idleCpt=0;
+ 			//}
+ 		}
+ 		
 	
 		// read from KBD
 		//ngetchx();
 		//short key = GetKeyInput();
 		if ( kbhit() ) {
 			short key = ngetchx();
+			
+			// @ this time : avoid key-repeat
+			while( kbhit() ) {}
 			
 			memset( KEYval, 0x00, 8);
 			sprintf( KEYval, "K:%d\n", key );

@@ -94,7 +94,8 @@ void setup() {
   
   // init & clean serial port =======
   Serial.begin(115200);
-  //serPort.begin(19200);
+  //serPort.begin(9600);
+  //serPort.setTimeout(1000); // default value
   serPort.flush();
   while(serPort.available() > 0) { serPort.read(); }
   // ================================
@@ -129,10 +130,15 @@ void dummyMode() {
   int recvNb;
   if (DBUG_DUMMY) serPort.println(F("DUMMY"));
 
+  //serPort.setTimeout(400);
+
   ti_resetLines();
 
   // see : https://internetofhomethings.com/homethings/?p=927
-      const int MAX_READ_LEN = 8;
+      //const int MAX_READ_LEN = 32;
+
+const int MAX_READ_LEN = 1;
+
       //const int MAX_READ_LEN = 256;
       memset(screen, 0x00, MAX_READ_LEN+1);
       int fullPacketLen = 0;
@@ -141,32 +147,68 @@ void dummyMode() {
       int cpt=0;
       int kc;
 
+      char chs[2] = { 0x00, 0x00 };
+
+      char msg[30];
+
       while(true) {
-        while ( (fullPacketLen = serPort.available()) > 0 ) {
 
-          // DONE : NO MORE delay() in this loop 
+        while ( Serial.available() > 0 ) {
+          int ch = serPort.readBytes( screen, MAX_READ_LEN );
+          if ( ch <= 0 ) { break;; }
 
-          for(int i=0; i < fullPacketLen; i+=MAX_READ_LEN) {
-            memset(screen, 0x00, MAX_READ_LEN+1);
+          // need to be less than 255
+          //chs[0] = (char)ch;
+          //ti_send( chs, 1 );
 
-            toRead = MAX_READ_LEN;
-            if ( i + MAX_READ_LEN > fullPacketLen ) {
-              toRead = fullPacketLen - i;
-            }
-            //serPort.readBytes( screen, toRead );
+          ti_send( screen, ch );
 
-            // read available datas
-            int toWrite = serPort.readBytes( screen, toRead );
-            toRead = toWrite;
+          // just for tmp debug
+          // sprintf(msg, "len sent %d\n", ch);
+          // serPort.print(msg);
 
-            if ( toWrite == 0 ) {  continue; }
+          //chs[0] = ch;
+          //ti_send( chs, 1 );
+          //delay(1);
+        }
 
+
+        // while ( (fullPacketLen = serPort.available()) > 0 ) {
+
+        //   // DONE : NO MORE delay() in this loop 
+
+        //   // for(int i=0; i < fullPacketLen; i+=MAX_READ_LEN) {
+        //   //   memset(screen, 0x00, MAX_READ_LEN+1);
+
+        //     toRead = MAX_READ_LEN;
+        //     // if ( i + MAX_READ_LEN > fullPacketLen ) {
+        //     //   toRead = fullPacketLen - i;
+        //     // }
+
+        //     //serPort.readBytes( screen, toRead );
+
+        //     // read available datas
+        //     int toWrite = serPort.readBytes( screen, toRead );
+        //     toRead = toWrite;
+
+        //     if ( toWrite == 0 ) {  continue; }
+
+        //     for(int i=0; i < toWrite; i++) {
+        //       chs[0] = screen[i];
+        //       ti_send( chs, 1 );
+        //       delay(2);
+        //     }
+
+            // ti_send( screen, toRead );
+            // delay(5);
+
+/*
             // sends nb of bytes received
             // requires @least v 1.1.0 of XtsTerm
             recv[0] = toRead / 256; 
             recv[1] = toRead % 256; 
             ti_send( recv, 2 );
-            delay(DEFAULT_POST_DELAY/2);
+            //delay(DEFAULT_POST_DELAY/2);
 
             // send data packet
             ti_send( screen, toRead );
@@ -179,11 +221,12 @@ void dummyMode() {
               if ( cpt == 100 ) { break; }
               cpt++;
             }
-          } // end of for
+          // } // end of for
 
-          delay(DEFAULT_POST_DELAY/2);
-
-        } // end while Serial.available()
+          // delay(DEFAULT_POST_DELAY/2);
+          delay( 1 );
+*/
+       // } // end while Serial.available()
 
         recvNb = ti_recv(recv, 2);
         if ( recvNb == 0 ) {
@@ -212,7 +255,7 @@ void dummyMode() {
               ti_recv(recv, 8);
               memset(intValue, 0x00, 10);
               for(int i=0; i < 8; i++) {
-                if ( recv[i] == '\n' ) { break; }
+                if ( recv[i] == '\n' ) { intValue[i] = 0x00; break; }
                 intValue[i] = recv[i];
               }
               kc = atoi( intValue );
@@ -241,13 +284,17 @@ void dummyMode() {
                 reboot();
                 return;
               }
-              else {
-                serPort.print( (char)kc );
+              else if (kc > 0 && kc < 256) {
+                serPort.write( kc );
+              } else {
+                serPort.print(">K:");
+                serPort.println( intValue );
               }
           } // end of key read
 
         } // end if recvNb == 0
-        delay(5);
+        
+        //delay(5);
       } // end while dummy
 
       if (DBUG_DUMMY) serPort.println(F("LEAVING DUMMY MODE"));
