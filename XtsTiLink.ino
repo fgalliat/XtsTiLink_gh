@@ -95,7 +95,7 @@ void setup() {
   // init & clean serial port =======
   Serial.begin(115200);
   //serPort.begin(9600);
-  //serPort.setTimeout(1000); // default value
+  serPort.setTimeout(1000); // default value
   serPort.flush();
   while(serPort.available() > 0) { serPort.read(); }
   // ================================
@@ -130,16 +130,14 @@ void dummyMode() {
   int recvNb;
   if (DBUG_DUMMY) serPort.println(F("DUMMY"));
 
-  //serPort.setTimeout(400);
+  serPort.setTimeout(400);
 
   ti_resetLines();
 
   // see : https://internetofhomethings.com/homethings/?p=927
       //const int MAX_READ_LEN = 32;
-
-const int MAX_READ_LEN = 1;
-
-      //const int MAX_READ_LEN = 256;
+      //const int MAX_READ_LEN = 1;
+      const int MAX_READ_LEN = 8;
       memset(screen, 0x00, MAX_READ_LEN+1);
       int fullPacketLen = 0;
 
@@ -157,76 +155,8 @@ const int MAX_READ_LEN = 1;
           int ch = serPort.readBytes( screen, MAX_READ_LEN );
           if ( ch <= 0 ) { break;; }
 
-          // need to be less than 255
-          //chs[0] = (char)ch;
-          //ti_send( chs, 1 );
-
           ti_send( screen, ch );
-
-          // just for tmp debug
-          // sprintf(msg, "len sent %d\n", ch);
-          // serPort.print(msg);
-
-          //chs[0] = ch;
-          //ti_send( chs, 1 );
-          //delay(1);
         }
-
-
-        // while ( (fullPacketLen = serPort.available()) > 0 ) {
-
-        //   // DONE : NO MORE delay() in this loop 
-
-        //   // for(int i=0; i < fullPacketLen; i+=MAX_READ_LEN) {
-        //   //   memset(screen, 0x00, MAX_READ_LEN+1);
-
-        //     toRead = MAX_READ_LEN;
-        //     // if ( i + MAX_READ_LEN > fullPacketLen ) {
-        //     //   toRead = fullPacketLen - i;
-        //     // }
-
-        //     //serPort.readBytes( screen, toRead );
-
-        //     // read available datas
-        //     int toWrite = serPort.readBytes( screen, toRead );
-        //     toRead = toWrite;
-
-        //     if ( toWrite == 0 ) {  continue; }
-
-        //     for(int i=0; i < toWrite; i++) {
-        //       chs[0] = screen[i];
-        //       ti_send( chs, 1 );
-        //       delay(2);
-        //     }
-
-            // ti_send( screen, toRead );
-            // delay(5);
-
-/*
-            // sends nb of bytes received
-            // requires @least v 1.1.0 of XtsTerm
-            recv[0] = toRead / 256; 
-            recv[1] = toRead % 256; 
-            ti_send( recv, 2 );
-            //delay(DEFAULT_POST_DELAY/2);
-
-            // send data packet
-            ti_send( screen, toRead );
-            memset(recv, 0x00, 10);
-
-            // waits for 0x06 xtsTerm Handshake (0x06)
-            // require XtsSterm 1.0.C
-            cpt=0;
-            while( ti_recv(recv, 1) != 0 && recv[0] != 0x06 ) {
-              if ( cpt == 100 ) { break; }
-              cpt++;
-            }
-          // } // end of for
-
-          // delay(DEFAULT_POST_DELAY/2);
-          delay( 1 );
-*/
-       // } // end while Serial.available()
 
         recvNb = ti_recv(recv, 2);
         if ( recvNb == 0 ) {
@@ -305,13 +235,9 @@ const int MAX_READ_LEN = 1;
 
 
 void loop() {
-  //delay(500);
   int recvNb = -1;
 
   digitalWrite(13, HIGH);
-
-  //ti_resetLines();
-  //delay(100);
   recvNb = ti_recv(recv, 2);
   
   if ( recvNb == 0 && recv[0] == 'X' && recv[1] == ':' ) {
@@ -402,10 +328,7 @@ void loop() {
           }
         }
       }
-    //}
 
-    // uint8_t st[1];
-    // for(int i=0; i < len; i++) { st[0] = (uint8_t)Serial.read(); ti_send(st,1); }
     ti_resetLines();
   }
 
@@ -480,56 +403,6 @@ void sendFlashFileToTi() {
 
 }
 
-// uint8_t tmp[32];
-// uint8_t b[1];
-// int tmpOffset = 0;
-// int tmpLength = 0;
-
-// void dummyMode() {
-//   serPort.write(0x06);
-//   int ch, l;//, l0,l1;
-//   while( true ) {
-
-//     while(serPort.available() == 0) { 
-//       //delay(1); 
-//       // @ this time : for Dump (max return is 16)
-      
-//       int r = ti_recv(b, 1); // direct reading
-//       if ( r == 0 ) { tmp[ tmpOffset++ ] = b[0]; tmpLength++; }
-//     }
-
-//     ch = serPort.read();
-//     if ( ch == (int)'X' ) {
-//       serPort.write( 0x06 );
-//       break;
-//     } else if ( ch == (int)'S' ) {
-//       l = (serPort.read()*256) + serPort.read();
-//       // BEWARE if more than 514
-//       serPort.readBytes( screen, l );
-//       // ti_resetLines();
-      
-//       ti_send(screen, l);
-// // //delay(5);
-// // ti_resetLines();
-// //       ti_recv(tmp, 8); // direct reading
-//       serPort.write( 0x06 ); //handshake - internal
-//     } else if ( ch == (int)'R' ) {
-//       l = (serPort.read()*256) + serPort.read();
-//       // BEWARE if more than 514
-//       // ti_resetLines();
-//       //ti_recv(screen, l);
-      
-//       //ti_recv(tmp, l);
-
-//       for(int i=0; i < l; i++) {
-//         serPort.write(tmpOffset-tmpLength+i);  
-//       }
-//       tmpOffset -= l; // NOT CERTIFIIED
-//       tmpLength -= l;
-
-//     }
-//   }
-// }
 
 
 

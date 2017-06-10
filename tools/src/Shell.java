@@ -12,20 +12,19 @@ static Process p = null;
 static boolean dummyActivated = false;
 
   public static void main(String[] args) throws Exception {
-ArduinoMCU.open();
-//ArduinoMCU.reset();
+    ArduinoMCU.open();
+    //ArduinoMCU.reset();
 
- int mask = SerialPort.MASK_RXCHAR;
+    int mask = SerialPort.MASK_RXCHAR;
 
-SerialPort serialPort = ArduinoMCU.getSerialPort();
-serialPort.setEventsMask(mask);
-//Add an interface through which we will receive information about events
-serialPort.addEventListener(new SerialPortReader());
+    SerialPort serialPort = ArduinoMCU.getSerialPort();
+    serialPort.setEventsMask(mask);
+    //Add an interface through which we will receive information about events
+    serialPort.addEventListener(new SerialPortReader());
 
 
-      boolean bashMode = new File("/bin/bash").exists();
-    String[] command =
-    {
+    boolean bashMode = new File("/bin/bash").exists();
+    String[] command = {
         bashMode ? "/bin/bash" : "cmd",
     };
     p = Runtime.getRuntime().exec(command);
@@ -61,11 +60,12 @@ serialPort.addEventListener(new SerialPortReader());
     int returnCode = p.waitFor();
     System.out.println("Return code = " + returnCode);
 
-ArduinoMCU.close();
+    //ArduinoMCU.close();
+    halt();
   }
 
   static void halt() {
-    p.destroy();
+    try { p.destroy(); } catch(Exception ex) {}
     ArduinoMCU.close();
     System.exit(0);
   }
@@ -123,23 +123,6 @@ static class SerialPortReader implements SerialPortEventListener {
                     }
                 }
             }
-            // //If the CTS line status has changed, then the method event.getEventValue() returns 1 if the line is ON and 0 if it is OFF.
-            // else if(event.isCTS()){
-            //     if(event.getEventValue() == 1){
-            //         System.out.println("CTS - ON");
-            //     }
-            //     else {
-            //         System.out.println("CTS - OFF");
-            //     }
-            // }
-            // else if(event.isDSR()){
-            //     if(event.getEventValue() == 1){
-            //         System.out.println("DSR - ON");
-            //     }
-            //     else {
-            //         System.out.println("DSR - OFF");
-            //     }
-            // }
         }
     }
 

@@ -31,8 +31,9 @@ char chs[2] = {0x00, 0x00};
 volatile char bytes[byteBuffLen+1];
 //volatile int cursor = 0;
 volatile bool textDirty = false;
+volatile bool textDirtyScroll = false;
 
-const char* PRGM_VERSION = "XtsTiTerm 1.4.3ov";
+const char* PRGM_VERSION = "XtsTiTerm 1.4.5ov";
 
 void printSeg(char* str, int x, int y, int ll) {
   if ( ll <= 0 ) { return; }
@@ -73,6 +74,7 @@ void tty_clear() {
 	memset(ttyMatrix, 0x00, ttyLen);
 	ttyCursor = 0;
 	low_cls();
+	textDirtyScroll = true;
 }
 
 void tty_setCharAt(char ch, int addr) {
@@ -111,6 +113,7 @@ void tty_scrollup() {
  	// move cursor
  	tty_setCurs( 0, TTY_MAX_HEIGHT-1 );
  	
+ 	textDirtyScroll = true;
  	textDirty = true;
 }
 
@@ -126,15 +129,20 @@ char line[ttyWidth+1];
 void render(int dirtyLineNb) {
   if ( !textDirty )	{ return; }
 	
-  int cc=0, xx=0;
+  int cc=0, xx=0, addr;
+
+	int start = dirtyLineNb-1; if (start < 0) { start = 0; }
+	if ( textDirtyScroll ) { start = 0; textDirtyScroll = false; }
+	
 
 	for(int i=0; i < TTY_MAX_HEIGHT; i++) {
-		memset( line, 0x00, ttyWidth );
+		//memset( line, 0x00, ttyWidth );
 
 		cc=0;
 		for(xx=0; xx < ttyWidth; xx++) { 
-		  line[xx] = ttyMatrix[ (i*ttyWidth)+xx ];
-		  if ( ttyMatrix[ (i*ttyWidth)+xx ] == 0) { cc=xx; break; } 
+		  addr = (i*ttyWidth)+xx;
+		  line[xx] = ttyMatrix[ addr ];
+		  if ( ttyMatrix[ addr ] == 0) { cc=xx; break; } 
 		}
 		if ( cc > 0 ) {
 		  printSeg(line, 0, (i*FONT_HEIGHT), cc);
@@ -161,6 +169,7 @@ void low_br() {
 
 }
 
+/*
 void disp(char* str, int len) {
   if ( len == 0 )	{ return; }
   //if ( len < 0 )  { len = strlen( str ); }
@@ -228,6 +237,7 @@ void disp(char* str, int len) {
  	}
 
 }
+*/
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO : refactor
@@ -334,10 +344,10 @@ void _main(void) {
 			textDirty = true;
  		} else {
  			
- 		  //if ( idleCpt++ > 2 ) {
+// 		  if ( idleCpt++ > 2 ) {
  			  render( tty_cursY() );
  			  idleCpt=0;
- 			//}
+// 			}
  		}
  		
 	

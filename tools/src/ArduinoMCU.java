@@ -15,7 +15,6 @@ public class ArduinoMCU {
 
     // COM7 UNO
     // COM11 proMini
-    //public static String commPort = "COM11";
     public static String commPort = new File("/bin/bash").exists() ? "/dev/ttyS0" : "COM11";
     public static boolean UNO = false;
 
