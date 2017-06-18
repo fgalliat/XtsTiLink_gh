@@ -137,7 +137,9 @@ void dummyMode() {
   // see : https://internetofhomethings.com/homethings/?p=927
       //const int MAX_READ_LEN = 32;
       //const int MAX_READ_LEN = 1;
-      const int MAX_READ_LEN = 8;
+      //const int MAX_READ_LEN = 8;
+      const int MAX_READ_LEN = 32;
+
       memset(screen, 0x00, MAX_READ_LEN+1);
       int fullPacketLen = 0;
 

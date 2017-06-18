@@ -28,15 +28,6 @@ enum CommonKeys {KEY_F1 = 268, KEY_F2 = 269, KEY_F3 = 270, KEY_F4 = 271, KEY_F5 
 extern long __randseed;
 #define abs(x) ({typeof(x) __x = (x); __x >= 0 ? __x : -__x;}) 
 
-
-enum Fonts {F_4x6, F_6x8, F_8x10}; 
-enum Attrs {A_REVERSE, A_NORMAL, A_XOR, A_SHADED, A_REPLACE, A_OR, A_AND, A_THICK1, A_SHADE_V, A_SHADE_H, A_SHADE_NS, A_SHADE_PS}; 
-
-#define DrawStr tios__0010
-void DrawStr (short x, short y, const char *str, short Attr);
-#define FontSetSys tios__0012
-unsigned char FontSetSys (short Font); 
-
 #define memset tios__0032
 void *memset (void *buffer, short c, unsigned long num); 
 #define memcpy tios__0034
@@ -64,10 +55,22 @@ extern void __tios_globals;
 #define HeapDeref(__h) (__heap[__h])
 #define HeapLock(__h) (((unsigned short*)HeapDeref((__h)))[-1]|=0x8000U)
 
+// ====================================================
+
+enum Fonts {F_4x6, F_6x8, F_8x10}; 
+enum Attrs {A_REVERSE, A_NORMAL, A_XOR, A_SHADED, A_REPLACE, A_OR, A_AND, A_THICK1, A_SHADE_V, A_SHADE_H, A_SHADE_NS, A_SHADE_PS}; 
+
+#define DrawStr tios__0010
+void DrawStr (short x, short y, const char *str, short Attr);
+#define FontSetSys tios__0012
+unsigned char FontSetSys (short Font); 
+
 #define MoveTo tios__0014
 void MoveTo (short x, short y); 
 #define DrawTo tios__0013
 void DrawTo (short x, short y); 
+
+// ====================================================
 
 #define __scr_attr (*(short*)(&__tios_globals+6104))
 #define SetCurAttr(__a) ({short __oa=__scr_attr;__scr_attr=(__a);__oa;})
@@ -105,6 +108,7 @@ SYM_ENTRY *FindSymEntry(HANDLE symlist, const char *name);
 #define __apd_expired (*(volatile short*)(&__tios_globals+0xf42))
 #define OSTimerExpired(__dummy) (__apd_expired)
 #define OSTimerRestart(__dummy) ({__apd_expired=0;__apd_current=__apd_init;})
+enum Timers{USER1_TIMER=1,BATT_TIMER=1,APD_TIMER=2,LIO_TIMER=3,CURSOR_TIMER=4,MISC_TIMER=5,USER_TIMER=6};
 
 #define __kb_globals tios__001b
 extern void __kb_globals;

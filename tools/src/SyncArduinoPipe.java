@@ -23,14 +23,14 @@ class SyncArduinoPipe implements Runnable {
                   synchronized(WRITE_LOCKER) {
 
                     ArduinoMCU.writeByte(buffer[0]); 
-                    //ArduinoMCU.delay(10); // optimum value
-
+                    ArduinoMCU.delay(10); // optimum value
+/*
                     if ( cpt++ % 4 < 2 ) {
                       ArduinoMCU.delay(10); // optimum value
                     } else {
                       ArduinoMCU.delay(6);
                     }
-
+*/
                   }
               }
           }

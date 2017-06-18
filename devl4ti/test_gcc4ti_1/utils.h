@@ -70,52 +70,46 @@ void xts_scrollup(int yStart, int nbOfLines, bool clearRemaining) {
 }
 
 void xts_drawHorizLine(int x, int y, int x2, bool black) {
-  volatile bool x1strict = x %8 == 0;
-  volatile bool x2strict = x2%8 == 0;
+	
+	// mandatory black ?
+	MoveTo( x, y );
+	DrawTo( x2, y );
+}
 
-	volatile int plainX1 = x /8 + ( !x1strict ? 1 : 0 );
-	volatile int plainX2 = x2/8 - ( !x2strict ? 1 : 0 );
-	
-	if ( plainX1 > plainX2 ) {
-		volatile int tmp = plainX1;
-		plainX1 = plainX2;
-		plainX2 = tmp;
-	}
-	
-	volatile int plainY  = (y*SCREEN_WIDTH/8);
-	
-	// draw 8pixels strict line
-	volatile unsigned char color = black ? 0xFF : 0x00;
-	for(volatile int xx = plainX1; xx <= plainX2; xx++) {
-		lcd[ plainY + xx ] = color;
-	}
-	
-	if ( !x1strict ) {
-		color = 0x00;
-		for(volatile int bit=0; bit < 8; bit++) {
-			if ( bit >= x%8 ) {
-				color += 1 << (7-x);
-			}
-		}
-		lcd[ plainY + plainX1-1 ] = color;
-	}
-	
-	if ( !x2strict ) {
-		color = 0x00;
-		for(volatile int bit=0; bit < 8; bit++) {
-			if ( bit >= x%8 ) {
-				color += 1 << (x);
-			}
-		}
-		lcd[ plainY + plainX2+0 ] = color;
-	}
-	
+
+void xts_drawLine(int x, int y, int x2, int y2) {
+	MoveTo( x, y );
+	DrawTo( x2, y2 );
+}
+
+void xts_drawRect(int x, int y, int w, int h) {
+	xts_drawLine(x,y,x+w,y);
+	xts_drawLine(x+w,y,x+w,y+h);
+	xts_drawLine(x+w,y+h,x,y+h);
+	xts_drawLine(x,y+h,x,y);
+}
+
+void xts_drawRoundedRect(int x, int y, int w, int h, int radius) {
+	xts_drawRect(x,y,w,h);
+	// rounded corner isn't impl. yet
 }
 
 // =========================================================================
 
-enum Timers{USER1_TIMER=1,BATT_TIMER=1,APD_TIMER=2,LIO_TIMER=3,CURSOR_TIMER=4,MISC_TIMER=5,USER_TIMER=6};
 
+// assumes only posiive values
+int atoi(char* str, int len) {
+    int res = 0;
+    for (int i=0; i < len; i++) {
+        res = (res*10) + (str[i]-'0');
+    }
+    return res;
+}
+
+int atoi_increment(int result, char ch) {
+	result = (result *10) + (ch-'0');
+	return result;
+}
 
 
 // =========================================================================

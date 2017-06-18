@@ -1,10 +1,40 @@
-TODO - last update 07/06/2017
+TODO - last update 15/06/2017
 
  XtsTerm : 
-   scroll (char matrix ? 60x20 => 1200 bytes) -- 64Kb RAM
-   local echo toggle
    draw KeyCombo table popUp
-   
+
+   emulate minimal VT100 escape seq. (cls, cursor, bold)
+^[H (cursor to top left) \__ DONE
+^[J (cls)                /
+
+
+]] faire du Handshaking entre l'arduino et le raspberry
+]] en attendant : brider le SyncArduinoPipe a 10ms pour TOUT les chars
+
+]] prevoir l'echo local
+
+   emulate Ctrl-C Ctrl-D .. keystoke (w/ DIAMOND key)
+
+   make a GFX mode for drawing from serial commands
+    - seems to have found the line/polyline drawing routine
+	- already have DrawStr + cls routines
+	- have to find drawCircle
+	     ---> for pixel control -> see flib.h
+
+   ex. ^)100;125;240;125;230;120l
+       -> draw a Polyline : from 100,125 to each points until 'l'
+	   ^)J 
+	   -> CLS LCD but not the char matrix (so next re-render will display text)
+	   ^)100;100;50;28;5r
+	   -> draw a rectangle w/ x=100, y=100, w=50, h=28 + ~corner radius~ : 5
+	   ^)105,105,coucou moa,1t
+	   -> draw GFX TEXT plain mode (,1) // BOLD (,2) @ X,Y pixels
+
+   will need atoi() (itoa is done by sprintf() ) :
+       -> written an impl in ./sandbox/
+
+
+   scroll (char matrix ? 60x20 => 1200 bytes) -- 64Kb RAM
 
 TODO - last update 26/05/2017
 

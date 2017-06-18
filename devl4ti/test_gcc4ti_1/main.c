@@ -4,8 +4,8 @@
 // Delete or comment out the items you do not need.
 #define COMMENT_STRING         "Xtase terminal."
 #define COMMENT_PROGRAM_NAME   "XtsTerm"
-#define COMMENT_VERSION_STRING "1.4"
-#define COMMENT_VERSION_NUMBER 1,4,0,0 /* major, minor, revision, subrevision */
+#define COMMENT_VERSION_STRING "1.5"
+#define COMMENT_VERSION_NUMBER 1,5,0,0 /* major, minor, revision, subrevision */
 #define COMMENT_AUTHORS        "Xtase - fgalliat"
 
 #define SCREEN_WIDTH 240
@@ -29,11 +29,11 @@ char chs[2] = {0x00, 0x00};
 
 #define byteBuffLen 128
 volatile char bytes[byteBuffLen+1];
-//volatile int cursor = 0;
+
 volatile bool textDirty = false;
 volatile bool textDirtyScroll = false;
 
-const char* PRGM_VERSION = "XtsTiTerm 1.4.5ov";
+const char* PRGM_VERSION = "XtsTiTerm 1.5.5ve";
 
 void printSeg(char* str, int x, int y, int ll) {
   if ( ll <= 0 ) { return; }
@@ -80,8 +80,6 @@ void tty_clear() {
 void tty_setCharAt(char ch, int addr) {
 	ttyMatrix[ addr ] = ch;
 }
-
-// void tty_setChar(char ch, int x, int y) { tty_setCharAt(ch, (y*ttyWidth)+x ); }
 
 int tty_cursX() { return ttyCursor % ttyWidth; }
 int tty_cursY() { return ttyCursor / ttyWidth; }
@@ -135,8 +133,7 @@ void render(int dirtyLineNb) {
 	if ( textDirtyScroll ) { start = 0; textDirtyScroll = false; }
 	
 
-	for(int i=0; i < TTY_MAX_HEIGHT; i++) {
-		//memset( line, 0x00, ttyWidth );
+	for(int i=start; i < TTY_MAX_HEIGHT; i++) {
 
 		cc=0;
 		for(xx=0; xx < ttyWidth; xx++) { 
@@ -169,78 +166,13 @@ void low_br() {
 
 }
 
-/*
-void disp(char* str, int len) {
-  if ( len == 0 )	{ return; }
-  //if ( len < 0 )  { len = strlen( str ); }
-  //if ( len > byteBuffLen ) {
-  //	len = byteBuffLen;
-  //}
-
-  //v3 of impl.	
-  for(int i=0; i < len; i++) {
-    if ( str[i] == 13 ) { continue; }	
-    
-  	if ( str[i] == 10 ) {
- 			low_br();
-			render( tty_cursY() );
-  	}
-  	
-  	else if (str[i] == 27 && len > i+1 && str[i+1] == '[') {
-  		// this is a VT100 ESCAPE Cmd
-  		
-  		if ( len > i+2 && str[i+2] == 'J' ) {
-  			cls();
-	  		i+=3;
-  		} else if ( len > i+3 && str[i+2] == '2' && str[i+3] == 'J') {
-  			// not tested
-  			cls();
-  			i+=4;
-  		} else if ( len > i+3 && str[i+2] >= '0' && str[i+2] <= '9' ) {
-  			i+=2;
-	  		// character attributes
-	  		// ex. ^[0m      end of char attribs
-	  		// ex. ^[05;01;32;44m 
-	  		// blink 05 - bold 01 - green fg 32 ; blue bg 44
-	  		while( str[i] != 'm' && i < len ) { i++; }
-	  	} else {
-	  		i+=2;
-	  		ttyMatrix[ ttyCursor++ ] = '^';
-	  		ttyMatrix[ ttyCursor++ ] = '[';
-	  		for(; i < len; i++) {
-		  		ttyMatrix[ ttyCursor++ ] = str[i];
-	  		}
-  		}
-  	}
-  	
-  	else {
-  		
-  		// auto wraps line
-  		
-  		if ( str[i] == 0x09 ) { // TAB
-  		  ttyMatrix[ ttyCursor++ ] = ' ';
-  		  ttyMatrix[ ttyCursor++ ] = ' ';
-  		  ttyMatrix[ ttyCursor++ ] = ' ';
-  		  ttyMatrix[ ttyCursor++ ] = ' ';
-  		} else {
-	  		ttyMatrix[ ttyCursor++ ] = str[i];
-  		}		
-  		
-  		if ( ttyCursor >= ttyLen ) {
-  			tty_scrollup();
-  		}
-
-  		ttyMatrix[ ttyCursor   ] = 0x00; // to keep clean lines
-  		
-  	}
-  	
- 	}
-
-}
-*/
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO : refactor
+
+#define vt100EscLen 128
+volatile char vt100Esc[vt100EscLen];
+volatile int  vt100EscCursor = 0;
+
 void dispOneChar(char ch) {
 	if ( ch == '\r' ) { return; }
 	if ( ch == '\n' ) { 
@@ -255,6 +187,8 @@ void dispOneChar(char ch) {
 	  ttyMatrix[ ttyCursor   ] = 0x00;
 	} else if ( ch == (char)27 ) {
 		ttyMatrix[ ttyCursor++ ] = '^';
+		vt100EscCursor = 0;
+		vt100Esc[ vt100EscCursor++ ] = '^';
 	} else if ( ch == (char)3 ) { 
 		ttyMatrix[ ttyCursor++ ] = 'C';
   	ttyMatrix[ ttyCursor++ ] = 't';
@@ -263,6 +197,134 @@ void dispOneChar(char ch) {
   	ttyMatrix[ ttyCursor++ ] = 'C';
 	} else {
 		ttyMatrix[ ttyCursor++ ] = ch;
+
+		if ( vt100EscCursor >= vt100EscLen-1 ) {
+			vt100EscCursor = 0;
+			vt100Esc[ vt100EscCursor ] = 0x00;
+		}
+
+		if ( vt100EscCursor > 0 ) {
+			vt100Esc[ vt100EscCursor++ ] = ch;
+			vt100Esc[ vt100EscCursor ] = 0x00;
+			
+			if ( vt100Esc[1] == '[' ) { // REGULAR VT100
+				// character attributes
+				if ( ch == 'm' ) { vt100EscCursor = 0; } // end of char attribute
+				//else if ( vt100EscCursor == 3 && strncmp( (const unsigned char*)vt100Esc, "^[J", 3) == 0 ) {  // VT100 - CLS code
+				else if ( vt100EscCursor == 3 && ch == 'J' ) {  // VT100 - CLS code
+					cls();
+					vt100EscCursor = 0;
+				}
+				//else if ( vt100EscCursor == 3 && strncmp( (const unsigned char*)vt100Esc, "^[H", 3) == 0 ) {  // VT100 - cursor top most code
+				else if ( vt100EscCursor == 3 && ch == 'H' ) {  // VT100 - cursor top most code
+					vt100EscCursor = 0;
+				} 
+				/*else if ( vt100EscCursor > 2) {
+					// let chars in the tty matrix
+					vt100EscCursor = 0;
+				}*/
+			} else if ( vt100Esc[1] == '(' ) { // MOA EXTENDED VT100
+				if ( vt100EscCursor == 3 && ch == 'J' ) {  // Ext VT100 - CLS draws only
+					low_cls();
+					vt100EscCursor = 0;
+				} else if ( vt100EscCursor >= 3 && ch == 'r' ) {  // Ext VT100 - draw RECT
+				  printSeg("RECT", 120, 0, 4);
+				
+				  volatile int x=0,y=0,w=0,h=0,r=0;
+				  volatile int i; volatile char cc;
+				  
+				  for(i=2; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+				  	x = atoi_increment( x, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+				  	y = atoi_increment( y, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+				  	w = atoi_increment( w, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+				  	h = atoi_increment( h, cc );
+				  }
+				  
+				  if ( cc != 'r' ) {		// optional corder ~radius~
+				  	for(; i < vt100EscCursor; i++) {
+					    cc = vt100Esc[i];
+					  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+					  	r = atoi_increment( r, cc );
+					  }
+				  }
+				  
+				  xts_drawRoundedRect(x,y,w,h,r);
+				  
+				  //volatile char msg[60];
+				  //sprintf(msg, "RECT(%d,%d,%d,%d -- %d)", x, y, w, h, r);
+				  //printSeg(msg, 120, 0, strlen(msg) );
+
+					vt100EscCursor = 0;
+				} else if ( vt100EscCursor >= 3 && ch == 'l' ) {  // Ext VT100 - draw POLYLINE
+				  volatile int x=0,y=0,x2=0,y2=0;
+				  volatile int i; volatile char cc;
+				  
+				  i=2;
+				  
+				  for(i=2; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+				  	x = atoi_increment( x, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+				  	y = atoi_increment( y, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+				  	x2 = atoi_increment( x2, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+				  	y2 = atoi_increment( y2, cc );
+				  }
+				  xts_drawLine(x,y,x2,y2);
+				  
+				  while( cc != 'l' ) {
+				  	x=x2; y=y2;
+				  	x2=0;y2=0;
+				  	
+				  	for(; i < vt100EscCursor; i++) {
+					    cc = vt100Esc[i];
+					  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+					  	x2 = atoi_increment( x2, cc );
+					  }
+					  for(; i < vt100EscCursor; i++) {
+					    cc = vt100Esc[i];
+					  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+					  	y2 = atoi_increment( y2, cc );
+					  }
+					  xts_drawLine(x,y,x2,y2);
+				  }
+				  
+					vt100EscCursor = 0;
+				} /* else if ( vt100EscCursor > 2) {
+					// let chars in the tty matrix
+					vt100EscCursor = 0;
+				} */
+			}  else if (vt100EscCursor > 1) {
+				// let chars in the tty matrix
+				vt100EscCursor = 0;
+			}
+		}
+		
 	}
 	
 	ttyMatrix[ ttyCursor   ] = 0x00; // to keep clean lines
@@ -275,7 +337,7 @@ void dispOneChar(char ch) {
 	char KEYval[8];
 	char HANDSHAKEseq[1] = { 0x06 }; 
 
-
+/*
 void sleepSec(int sec) {
 	//OSFreeTimer (USER_TIMER);
 	//OSRegisterTimer (USER_TIMER, sec*20);
@@ -284,7 +346,7 @@ void sleepSec(int sec) {
 	//OSTimerRestart(USER_TIMER);
 	//while (!OSTimerExpired (USER_TIMER));
 }
-
+*/
 
 
 // Main Function
@@ -325,12 +387,7 @@ void _main(void) {
 	
 	LIO_SendData(beginSession,2+6+1);
 	
-	// just a try ....
-	char inLengthBuf[2]; // no more than 64KB
-	unsigned int inLength;
 	char inputBuf[byteBuffLen+1];
-	
-	int idleCpt = 0;
 	
 	while( true ) {
 		
@@ -339,15 +396,10 @@ void _main(void) {
 	 	//if ( LIO_RecvData(inByte,1,4) ) {
 	 		
  		if ( LIO_RecvData(inputBuf,1,1) == 0 ) {
-			//disp( inputBuf, 1 );
 			dispOneChar( inputBuf[0] );
 			textDirty = true;
  		} else {
- 			
-// 		  if ( idleCpt++ > 2 ) {
- 			  render( tty_cursY() );
- 			  idleCpt=0;
-// 			}
+ 			render( tty_cursY() );
  		}
  		
 	
