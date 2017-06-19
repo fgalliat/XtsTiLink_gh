@@ -15,6 +15,28 @@ TODO - last update 15/06/2017
 
    emulate Ctrl-C Ctrl-D .. keystoke (w/ DIAMOND key)
 
+
+USB batterry for rpi0w (auto starts)(auto off when halt)(restart w/ battery btn)
+19:25 -> 
+22:30 stillOK -> halt
+
+====================== DONE =======================
+Shell.java remove readLine() reaplace by readChar()
+        map TI arrows key to VT100 equiv
+		in welcm.sh try > read -n1 toto
+
+# Arrow Keys:
+        Reset    Set
+        -----    ---
+up 		    ^[A ^[OA     338
+down        ^[B ^[OB     344
+right       ^[C ^[OC     340
+left        ^[D ^[OD     337
+====================== DONE =======================
+
+
+
+vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
    make a GFX mode for drawing from serial commands
     - seems to have found the line/polyline drawing routine
 	- already have DrawStr + cls routines
@@ -27,12 +49,15 @@ TODO - last update 15/06/2017
 	   -> CLS LCD but not the char matrix (so next re-render will display text)
 	   ^)100;100;50;28;5r
 	   -> draw a rectangle w/ x=100, y=100, w=50, h=28 + ~corner radius~ : 5
-	   ^)105,105,coucou moa,1t
-	   -> draw GFX TEXT plain mode (,1) // BOLD (,2) @ X,Y pixels
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	   ^)105;105;coucou moa;1t
+	   -> draw GFX TEXT plain mode (;1) // REVERSE (;2) @ X,Y pixels
+     -> reverse is mirror not reverse video (have to find better)
+
 
    will need atoi() (itoa is done by sprintf() ) :
        -> written an impl in ./sandbox/
-
 
    scroll (char matrix ? 60x20 => 1200 bytes) -- 64Kb RAM
 
