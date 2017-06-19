@@ -94,18 +94,18 @@ static class SerialPortReader implements SerialPortEventListener {
                             Shell.halt();
                             return;
                         } else {
-                            // // if (buffer[0] == 10) { Shell.printToProcess( "\n".getBytes() ); }
-                            // if ( Shell.dummyActivated ) {
-                            //   Shell.printToProcess( buffer );
-                            // }
-
+                            // if (buffer[0] == 10) { Shell.printToProcess( "\n".getBytes() ); }
+                            if ( Shell.dummyActivated ) {
+                              Shell.printToProcess( buffer );
+                            }
+/*
                             cmd += (char)buffer[0];
                             if (buffer[0] == '\n') { 
                                 Shell.printToProcess( cmd.getBytes() ); 
                                 System.out.println("SHELL> "+cmd);
                                 cmd = "";
                             }
-
+*/
                         }
                         if ( dummy != null ) {
                           dummy +=  new String( buffer );
