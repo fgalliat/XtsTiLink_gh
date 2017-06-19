@@ -208,6 +208,30 @@ void dummyMode() {
                 serPort.write( 32 );
                 serPort.write( 8 );
               }
+              else if ( kc >= 337 && kc <= 348 ) {
+                // Arrows key
+                if ( kc == 338 ) { // UP
+                  //serPort.write( 27 );
+                  //serPort.print(F("[0A"));
+                  serPort.write( 27 );
+                  serPort.print(F("[A"));
+                } else if ( kc == 344 ) { // DOWN
+                  //serPort.write( 27 );
+                  //serPort.print(F("[0B"));
+                  serPort.write( 27 );
+                  serPort.print(F("[B"));
+                } else if ( kc == 337 ) { // LEFT
+                  //serPort.write( 27 );
+                  //serPort.print(F("[0DA"));
+                  serPort.write( 27 );
+                  serPort.print(F("[D"));
+                } else if ( kc == 340 ) { // RIGHT
+                  //serPort.write( 27 );
+                  //serPort.print(F("[0C"));
+                  serPort.write( 27 );
+                  serPort.print(F("[C"));
+                } 
+              }
               else if ( kc == 4360 ) {
                 // 2nd + Quit
                 // - dirty trap -
