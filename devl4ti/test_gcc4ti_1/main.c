@@ -315,6 +315,35 @@ void dispOneChar(char ch) {
 				  }
 				  
 					vt100EscCursor = 0;
+				} else if ( vt100EscCursor >= 3 && ch == 't' ) {  // Ext VT100 - draw text
+				  volatile int x=0,y=0,attr=0;
+				  volatile int i; volatile char cc;
+				  volatile char txt[60]; volatile int cursor = 0;
+				  i=2;
+				  
+				  for(i=2; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 't' ) { i++; break; }
+				  	x = atoi_increment( x, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' || cc== 't' ) { i++; break; }
+				  	y = atoi_increment( y, cc );
+				  }
+				  for(; i < vt100EscCursor; i++) {
+				    cc = vt100Esc[i];
+				  	if ( cc == ';' ) { i++; break; }
+				  	txt[ cursor++ ] = cc;
+				  }
+				  
+				  cc = vt100Esc[i];
+				  if ( cc >= '0' && cc <= '9' ) {
+				  	attr = cc-'0';
+				  }
+				  
+				  DrawStr(x,y,txt, attr == 2 ? A_REVERSE : A_NORMAL );
+				  
 				} /* else if ( vt100EscCursor > 2) {
 					// let chars in the tty matrix
 					vt100EscCursor = 0;
