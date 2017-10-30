@@ -706,8 +706,8 @@ void sendAbackup(uint16_t dataLen) {
 
    } while( true );
 
-      serPort.write( 0x00 );
-      serPort.write( 0x00 );
+      serPort.write( (byte)0x00 );
+      serPort.write( (byte)0x00 );
 
    outprint("-EOF-\n");
 
