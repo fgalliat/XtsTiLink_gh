@@ -39,7 +39,9 @@
 //#include "PONG.h"
 //#include "bbb.h"
 // #include "tetrisgb.h"  // Works well on a TI92+ (as ASM Var)
-#include "xtsterm.92p.h"  // Works well on TI92-1 w/ Fargo
+
+// #include "xtsterm.92p.h"  // Works well on TI92-1 w/ Fargo
+ #include "keyb.92p.h"  // TiBasic only keyb version
 
 #define TI_MODEL_92
 #include "tilink.h"
@@ -502,6 +504,12 @@ Serial.println("(CBL) Success");
             // send PRGM
             sendTiFile(false, true);
 
+            reboot();
+            return;
+          } else if (serPort.peek() == 'K') {
+            serPort.read();
+            // send PRGM from flashMem
+            sendFlashFileToTi();
             reboot();
             return;
           }
