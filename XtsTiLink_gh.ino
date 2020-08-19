@@ -256,8 +256,64 @@ void dummyMode() {
       if (DBUG_DUMMY) serPort.println(F("LEAVING DUMMY MODE"));
 }
 
+// to Serial ASCII for now
+void dumpScreen() {
+  int recvNb = -1;
+  ti_resetLines();
+  
+  data[1] = REQ_SCREENSHOT;
+  ti_send(data, 4);
+  delay(50);
 
+  ti_resetLines();
+  delay(100);
+  recvNb = ti_recv(recv, 4); // => calculator's ACK
+  ti_resetLines();
+  // recvNb is always 0 !!! --> returns the available/remaining bytes ...
+  recvNb = ti_recv(recv, 4); // ? 89 15 00 0F ? <TI92> <?> <LL> <HH> => 00 0F => 0F 00 = 3840 screen mem size
+  if ( recvNb != 0 ) {
+    serPort.println("TI did not ACK'ed, abort");
+    return;
+  }
+  
+  // Dumping screen raster
+  for(int j=0; j < MAX_TI_SCR_SIZE; j+=SCREEN_SEG_MEM) {
+    int howMany = (j+SCREEN_SEG_MEM) < MAX_TI_SCR_SIZE ? SCREEN_SEG_MEM : SCREEN_SEG_MEM - ( (j+SCREEN_SEG_MEM) % MAX_TI_SCR_SIZE );
 
+    ti_recv(screen, howMany);
+    dispScreenMem(howMany);
+  }
+
+  recvNb = ti_recv(recv, 2); // checksum from TI
+  //Serial.println(recvNb);
+  
+  data[1] = REP_OK;
+  ti_send(data, 4); // Arduino's ACK
+  delay(50);
+  serPort.println("go 3");
+}
+
+void sendText(char* txt, bool CR=false) {
+  ti_sendKeyStrokes(txt);
+  if ( CR ) { ti_sendKeyStroke(0x0D); }
+}
+
+#define CBL_92 0x19
+#define CALC_92 0x89
+#define ACK REP_OK
+#define CTS 0x09
+
+void CBL_ACK() {
+  static uint8_t E[4] = { CBL_92, ACK, 0x00, 0x00 };
+  ti_send(E, 4);
+  delay(3);
+}
+
+void CBL_CTS() {
+  static uint8_t E[4] = { CBL_92, CTS, 0x00, 0x00 };
+  ti_send(E, 4);
+  delay(3);
+}
 
 
 void loop() {
@@ -276,7 +332,82 @@ void loop() {
 
       dummyMode();
     }
-  }  
+  }
+
+  // dummy from Ti
+  else if ( recvNb == 0 ) {
+    // SendCalc c (c=102)
+    // 89 6 7 0 5 0 0 0 0 1 63 69 0 
+
+    // CBL : Send {1}
+    // 89 6 7 0 3 0 0 0 4 1 FF 7 1 
+    // fixe pour une lite de 1 arg
+
+    Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+    Serial.print( recv[1], HEX ); Serial.print( F(" ") );
+
+    bool cblSend = false;
+    if ( recv[0] == 0x89 && recv[1] == 0x06 ) {
+      cblSend = true;
+    }
+
+
+    do {
+      recvNb = ti_recv( recv, 1 );
+      if ( recvNb != 0 ) { break; }
+      Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+    } while(true);
+
+    
+
+    if ( cblSend ) {
+      Serial.println("");
+      Serial.println("Send to CBL");
+
+      CBL_ACK();
+      CBL_CTS();
+
+      // 89 56 0 0 - Ti :ACK
+      recvNb = ti_recv( recv, 4 );
+      if ( recvNb != 0 ) {
+        Serial.println("(CBL) ACK failed");
+      }
+
+// 89 6 7 0 3 0 0 0 4 1 FF 7 1
+// 89 15 7 0 1 0 0 0 20 31 00 52 0 // Send {1}
+// 89 15 7 0 1 0 0 0 20 32 00 53 0 // Send {2}
+// 89 15 7 0 1 0 0 0 20 33 00 54 0 // Send {3}
+
+// 89 6 7 0 5 0 0 0 4 1 FF 9 1
+// 89 15 9 0 1 0 0 0 20 32 35 35 0 BD 0 // Send {255}
+//                       2  5  5 as chars
+// 32(h) -> 50(10) -> '2'
+// 35(h) -> 53(10) -> '5'
+// from byte #9 sent as string (Cf compat Ti82 legacy ...)
+// from 0x20 to 0x00 or read len in headers
+
+
+    do {
+      recvNb = ti_recv( recv, 1 );
+      if ( recvNb != 0 ) { break; }
+      Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+    } while(true);
+Serial.println("");
+
+CBL_ACK();
+
+// 89 92 0 0 - Ti : EOT
+recvNb = ti_recv( recv, 4 );
+if ( recvNb != 0 ) {
+  Serial.println("(CBL) EOT failed");
+}
+CBL_ACK();
+Serial.println("(CBL) Success");
+
+    }
+  }
+
+
   // // from my Basic/asmrt program...
   // else if ( recvNb == 0 && recv[0] == 'K' && recv[1] == ':' ) {
   //   //K:<code>\n
@@ -331,6 +462,12 @@ void loop() {
           if (serPort.peek() == 'R') {
             serPort.read();
             reboot();
+          } else if (serPort.peek() == 'S') {
+            serPort.read();
+            dumpScreen();
+          } else if (serPort.peek() == 'T') {
+            serPort.read();
+            sendText("Hello World !", false);
           } else if (serPort.peek() == 'P') {
             serPort.read();
             // send PRGM
@@ -374,38 +511,6 @@ void loop() {
   }
   serPort.println("go");
   
-  ti_resetLines();
-  
-  data[1] = REQ_SCREENSHOT;
-  ti_send(data, 4);
-  delay(50);
-
-  ti_resetLines();
-  delay(100);
-  recvNb = ti_recv(recv, 4); // => calculator's ACK
-  ti_resetLines();
-  // recvNb is always 0 !!! --> returns the available/remaining bytes ...
-  recvNb = ti_recv(recv, 4); // ? 89 15 00 0F ? <TI92> <?> <LL> <HH> => 00 0F => 0F 00 = 3840 screen mem size
-  if ( recvNb != 0 ) {
-    serPort.println("TI did not ACK'ed, abort");
-    return;
-  }
-  
-  // Dumping screen rasetr
-  for(int j=0; j < MAX_TI_SCR_SIZE; j+=SCREEN_SEG_MEM) {
-    int howMany = (j+SCREEN_SEG_MEM) < MAX_TI_SCR_SIZE ? SCREEN_SEG_MEM : SCREEN_SEG_MEM - ( (j+SCREEN_SEG_MEM) % MAX_TI_SCR_SIZE );
-
-    ti_recv(screen, howMany);
-    dispScreenMem(howMany);
-  }
-
-  recvNb = ti_recv(recv, 2); // checksum from TI
-  //Serial.println(recvNb);
-  
-  data[1] = REP_OK;
-  ti_send(data, 4); // Arduino's ACK
-  delay(50);
-  serPort.println("go 3");
   
 }
 

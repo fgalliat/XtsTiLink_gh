@@ -2,3 +2,6 @@ tools/bin/
 *.o
 sync.sh
 desktop.ini
+.vscode/
+docs/ti92_Cprog.pdf
+*~
