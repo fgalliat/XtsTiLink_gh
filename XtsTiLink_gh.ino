@@ -343,25 +343,38 @@ void loop() {
     // 89 6 7 0 3 0 0 0 4 1 FF 7 1 
     // fixe pour une lite de 1 arg
 
-    Serial.print( recv[0], HEX ); Serial.print( F(" ") );
-    Serial.print( recv[1], HEX ); Serial.print( F(" ") );
+    #define DBG_CBL 0
+
+    #if DBG_CBL
+      Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+      Serial.print( recv[1], HEX ); Serial.print( F(" ") );
+    #endif
 
     bool cblSend = false;
     if ( recv[0] == 0x89 && recv[1] == 0x06 ) {
       cblSend = true;
     }
 
-
+    int cpt = 2;
     do {
       recvNb = ti_recv( recv, 1 );
+      if ( cpt == 8 && recv[0] != 0x04 ) {
+        Serial.println("Not a CBL Send");
+        cblSend = false;
+      }
       if ( recvNb != 0 ) { break; }
-      Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+      #if DBG_CBL
+        Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+      #endif
+      cpt++;
     } while(true);
+    #if DBG_CBL
+      Serial.println("");
+    #endif
 
     
 
     if ( cblSend ) {
-      Serial.println("");
       Serial.println("Send to CBL");
 
       CBL_ACK();
@@ -381,16 +394,32 @@ void loop() {
 // 89 6 7 0 5 0 0 0 4 1 FF 9 1
 // 89 15 9 0 1 0 0 0 20 32 35 35 0 BD 0 // Send {255}
 //                       2  5  5 as chars
+
+// Send {102,103} -> 20 -> ',' (aka ' ')
+// 89 6 7 0 9 0 0 0 4 1 FF D 1 
+// 9 15 D 0 2 0 0 0 20 31 30 32 20 31 30 33 0 69 1
+
 // 32(h) -> 50(10) -> '2'
 // 35(h) -> 53(10) -> '5'
 // from byte #9 sent as string (Cf compat Ti82 legacy ...)
 // from 0x20 to 0x00 or read len in headers
 
-
+    bool first20 = false;
+    bool last0 = false;
     do {
       recvNb = ti_recv( recv, 1 );
       if ( recvNb != 0 ) { break; }
-      Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+
+      if ( !first20 && recv[0] == 0x20 ) {
+        first20 = true;
+      } else if ( first20 && recv[0] == 0x00 ) {
+        first20 = false;
+        last0 = true;
+      } else if ( cblSend && first20 && !last0) {
+        // Serial.print( recv[0], HEX ); Serial.print( F(" ") );
+        Serial.print( (char)recv[0] );
+      }
+ 
     } while(true);
 Serial.println("");
 
