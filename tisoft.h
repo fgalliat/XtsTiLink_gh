@@ -26,6 +26,9 @@
 #define VAR_FILE_SIZE_OFFSET 86
 #define VAR_FILE_DATA_OFFSET (VAR_FILE_SIZE_OFFSET+2)
 
+// #define VAR_FILE_SIZE_OFFSET 76
+// #define VAR_FILE_DATA_OFFSET (VAR_FILE_SIZE_OFFSET+4)
+
 #define REQ_SCREENSHOT 0x6D
 #define REQ_BACKUP     0xA2
 #define REP_OK         0x56
@@ -141,7 +144,14 @@ extern uint8_t screen[];
 int __SCREEN_SEG_MEM = -1;
 // ==============================================
 
-void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLen, bool archived) {
+
+#define MSW(msg) ( (int) (msg >> 16) )
+#define LSW(msg) ( (int) (msg & 65535) )
+#define LSB( byt ) ( (int) (byt & 255) )
+#define MSB( byt ) ( (int) (byt >> 8) )
+
+
+void TI_xdp(char data[], int dataLen, int sendingMode, bool silent, int& dtLen, bool archived) {
 		// packLen = 4 bytes for dataLen
 		// + n for filename
 		int packLen = 4 + dataLen;
@@ -169,6 +179,10 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
 		result[5] = 0;
     result[6] = 0;
 		result[7] = 0;
+    // result[4] = LSB(LSW(dataLen));
+    // result[5] = MSB(LSW(dataLen));
+    // result[6] = LSB(MSW(dataLen));
+    // result[7] = MSB(MSW(dataLen));
 
     uint16_t sum = 0;
 
@@ -189,15 +203,20 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
       sum += (uint8_t)data[0];	
       sum += (uint8_t)data[1];	
       ti_send( (uint8_t*)data, 2);
+outprintln(F("FLH > VarLen"));
 
       uint8_t D[1];
       for (int i = 0; i < dataLen-2; i++) { 
         D[0] = pgm_read_byte_near(FILE_CONTENT + VAR_FILE_DATA_OFFSET + i);
-        if ( i == dataLen - 2 - 3 ) {
-           D[0] = (uint8_t)( archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO );
-        }
+
+        // if ( i == dataLen - 2 - 3 ) {
+        //    D[0] = (uint8_t)( archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO );
+        // }
+        
         sum += (uint8_t)D[0];	
         ti_send( (uint8_t*)D, 1);
+        outprint(F("FLH > "));
+        outprintln(i);
       }
       delay( DEFAULT_POST_DELAY/2 );
     } else if ( sendingMode == SEND_MODE_SERIAL ) {
@@ -246,12 +265,17 @@ void TI_xdp(char data[], int dataLen, int sendingMode, boolean silent, int& dtLe
 		int checksum1 = (sum / 256);// & 0xFF;
 
     result[0] = checksum0;
+    // temp Cf 2A 27 instead of 8C 27
+    // result[0] = 0x8C; // 8C 27 two last bytes of file
+
+
     result[1] = checksum1;
 
     dtLen = finalLen;
 
     ti_send(result, 2);
     delay( DEFAULT_POST_DELAY );
+    outprintln(F("FLH > CHKSUM"));
 
     DBUG(result, 2); // just to verify
 
@@ -325,6 +349,10 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   // initDatas = (char*)"_txt2()\nPrgm\nDisp \"123\"\nEndprgm?";
   // prgm name cant start by '_'
   fileName = (char*)"main\\bbb";
+
+
+  fileName = (char*)"main\\keyb";
+
   if ( fileType == FTYPE_ASM ) {
     fileName = (char*)"main\\tetris";
   }
@@ -441,34 +469,42 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   // == RTS ==
   TI_header(fileName, fileType, dataLen, silent, len, true);
   delay(postDelay);
+  outprintln(F("Header"));
 
   uint8_t recv[4];
   
   // == ACK ==
   ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK")); return -1; }
+  outprintln(F("< ACK"));
   
   // == CTS ==
   ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read CTS")); return -1; }
+  outprintln(F("< CTS"));
   
   // == ACK ==
   uint8_t B[4] = { 0x09, 0x56, 0x00, 0x00 };
   ti_send(B, 4);
   delay(postDelay/2);
+  outprintln(F("> ACK"));
   
   // == XDP == 
   TI_xdp(data, dataLen, sendingMode, silent, len, archived);
   delay(postDelay/2);
+  outprintln(F("> XDP"));
   
   // == ACK ==
   ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (2)")); return -1; }
+  outprintln(F("< ACK"));
   
   // == EOT ==
   uint8_t D[4] = { 0x09, 0x92, 0x00, 0x00 };
   ti_send(D, 4);
   delay(postDelay/2);  
+  outprintln(F("> EOT"));
   
   // ACK ==
   ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (3)")); return -1; }
+  outprintln(F("< ACK"));
 
   outprintln(F("Var sent"));
   
