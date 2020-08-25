@@ -443,9 +443,21 @@ void loop() {
     cbldata[dataLen+1] = 0x00; // remove CHK
 
     char* value = &cbldata[5]; // just after 0x20, ends w/ 0x00
-
+#if 0
     Serial.print("CBL:");
     Serial.println(value);
+#else
+    int kc = atoi( value );
+
+    char msg[5];
+    msg[0] = 'K';
+    msg[1] = kc < 256 ? (char)kc : 0xFF;
+    msg[2] = kc >> 8; // beware often be 0x00
+    msg[3] = kc % 256;
+    msg[4] = 0x00;
+    Serial.println(msg);
+
+#endif
 
 #else
     bool first20 = false;
