@@ -378,7 +378,7 @@ void loop() {
     
 
     if ( cblSend ) {
-      Serial.println("Send to CBL");
+      if (false) Serial.println("Send to CBL");
 
       CBL_ACK();
       CBL_CTS();
@@ -400,13 +400,42 @@ void loop() {
 
 // Send {102,103} -> 20 -> ',' (aka ' ')
 // 89 6 7 0 9 0 0 0 4 1 FF D 1 
-// 9 15 D 0 2 0 0 0 20 31 30 32 20 31 30 33 0 69 1
+// 89 15 D 0 2 0 0 0 20 31 30 32 20 31 30 33 0 69 1
 
 // 32(h) -> 50(10) -> '2'
 // 35(h) -> 53(10) -> '5'
 // from byte #9 sent as string (Cf compat Ti82 legacy ...)
 // from 0x20 to 0x00 or read len in headers
 
+//       L M 1 2 3 4 5  6  7  CHK CHK
+// 89 15 7 0 1 0 0 0 20 33 00 54 0 // Send {3}
+
+#if 1
+    recvNb = ti_recv( recv, 4 );
+    if ( recvNb != 0 ) {
+      Serial.println("(CBL) DATA HEAD failed");
+    }
+
+    int d0 = recv[2];
+    int d1 = recv[3];
+    int dataLen = ( d1 << 8 ) + d0;
+
+    uint8_t cbldata[dataLen+2]; // +2 for CHK
+
+    recvNb = ti_recv( cbldata, dataLen+2 );
+    if ( recvNb != 0 ) {
+      Serial.println("(CBL) DATA VALUE failed");
+    }
+
+    cbldata[dataLen] = 0x00; // remove CHK
+    cbldata[dataLen+1] = 0x00; // remove CHK
+
+    char* value = &cbldata[5]; // just after 0x20, ends w/ 0x00
+
+    Serial.print("CBL:");
+    Serial.println(value);
+
+#else
     bool first20 = false;
     bool last0 = false;
     do {
@@ -425,6 +454,7 @@ void loop() {
  
     } while(true);
 Serial.println("");
+#endif
 
 CBL_ACK();
 
@@ -434,7 +464,7 @@ if ( recvNb != 0 ) {
   Serial.println("(CBL) EOT failed");
 }
 CBL_ACK();
-Serial.println("(CBL) Success");
+//Serial.println("(CBL) Success");
 
     }
   }
