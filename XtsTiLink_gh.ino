@@ -318,6 +318,16 @@ void CBL_CTS() {
   delay(3);
 }
 
+void relaunchKeybPrgm() {
+  Serial.println("RELAUNCH keyb");
+  ti_sendKeyStroke(264); // Esc
+  delay(150);
+  ti_sendKeyStroke(263); // Clear
+  delay(150);
+
+  ti_sendKeyStrokes("main\\keyb");
+  ti_sendKeyStroke(0x0D);
+}
 
 void loop() {
   int recvNb = -1;
@@ -387,6 +397,8 @@ void loop() {
       recvNb = ti_recv( recv, 4 );
       if ( recvNb != 0 ) {
         Serial.println("(CBL) ACK failed");
+
+        if (true) { relaunchKeybPrgm(); return; }
       }
 
 // 89 6 7 0 3 0 0 0 4 1 FF 7 1
