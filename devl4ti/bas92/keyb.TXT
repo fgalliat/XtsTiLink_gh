@@ -1,0 +1,19 @@
+\START92\
+\COMMENT=
+\NAME=keyb
+\FILE=keyb.92p
+keyb()
+Prgm
+
+0\->\c
+ While c\!=\264
+   0\->\c
+   While c=0
+  getKey()\->\c
+   endWhile
+   Send {c}
+ endWhile
+
+EndPrgm
+
+\STOP92\

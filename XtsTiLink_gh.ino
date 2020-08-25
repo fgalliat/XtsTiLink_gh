@@ -41,7 +41,8 @@
 // #include "tetrisgb.h"  // Works well on a TI92+ (as ASM Var)
 
 // #include "xtsterm.92p.h"  // Works well on TI92-1 w/ Fargo
- #include "keyb.92p.h"  // TiBasic only keyb version
+ #include "keyb.92p.h"  // TiBasic only keyb version (non tokenized WLINK92.EXE)
+// #include "keyb3.92p.h"  // TiBasic sample (non tokenized WLINK92.EXE)
 
 #define TI_MODEL_92
 #include "tilink.h"
