@@ -71,7 +71,7 @@ uint8_t* TI_chk(uint8_t b[], int len) {
 		return result;
 }
 
-void TI_header(const char* constCharFileName, int fileType, int dataLen, boolean silent, int& dtLen, bool send) {
+void TI_header(const char* constCharFileName, int fileType, int dataLen, bool silent, int& dtLen, bool send) {
 		int i;
 
 		int nameLength = strlen(constCharFileName);
