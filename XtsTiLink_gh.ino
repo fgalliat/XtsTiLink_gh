@@ -109,7 +109,13 @@ void setup() {
 }
 
   
-  void dispScreenMem(int len) {
+  void dispScreenMem(int len, bool ascii) {
+
+    if ( !ascii ) {
+      serPort.write( screen, len );
+      return;
+    }
+
     // Dump the screen to the serial console
     for (int i = 0; i < len; i++) {
       for (int j = 7; j >= 0; j--) {
@@ -261,7 +267,7 @@ void dummyMode() {
 }
 
 // to Serial ASCII for now
-void dumpScreen() {
+void dumpScreen(bool ascii=true) {
   int recvNb = -1;
   ti_resetLines();
   
@@ -280,12 +286,17 @@ void dumpScreen() {
     return;
   }
   
+  if ( !ascii ) {
+    serPort.write( (uint8_t)(MAX_TI_SCR_SIZE >> 8) );
+    serPort.write( (uint8_t)(MAX_TI_SCR_SIZE % 256) );
+  }
+
   // Dumping screen raster
   for(int j=0; j < MAX_TI_SCR_SIZE; j+=SCREEN_SEG_MEM) {
     int howMany = (j+SCREEN_SEG_MEM) < MAX_TI_SCR_SIZE ? SCREEN_SEG_MEM : SCREEN_SEG_MEM - ( (j+SCREEN_SEG_MEM) % MAX_TI_SCR_SIZE );
 
     ti_recv(screen, howMany);
-    dispScreenMem(howMany);
+    dispScreenMem(howMany, ascii);
   }
 
   recvNb = ti_recv(recv, 2); // checksum from TI
@@ -301,6 +312,19 @@ void sendText(char* txt, bool CR=false) {
   ti_sendKeyStrokes(txt);
   if ( CR ) { ti_sendKeyStroke(0x0D); }
 }
+
+void wakeUpCalc() {
+  ti_sendKeyStroke(267); // ON Key
+}
+
+// doesn't work
+// void sleepCalc(bool closePrgm) {
+//   if ( closePrgm ) {
+//     ti_sendKeyStroke(4360); // 2nd+QUIT Keys
+//   }
+//   //ti_sendKeyStroke(8459); // Diamond+ON Key (not really OFF key...)
+// }
+
 
 #define CBL_92 0x19
 #define CALC_92 0x89
@@ -326,7 +350,7 @@ void relaunchKeybPrgm() {
   ti_sendKeyStroke(263); // Clear
   delay(150);
 
-  ti_sendKeyStrokes("main\\keyb");
+  ti_sendKeyStrokes("main\\keyb()");
   ti_sendKeyStroke(0x0D);
 }
 
@@ -536,7 +560,14 @@ Serial.println("");
             reboot();
           } else if (serPort.peek() == 'S') {
             serPort.read();
-            dumpScreen();
+            dumpScreen(); // DumpScreen in ASCII mode
+            reboot();
+            return;
+          } else if (serPort.peek() == 's') {
+            serPort.read();
+            dumpScreen(false); // DumpScreen in BINARY mode
+            reboot();
+            return;
           } else if (serPort.peek() == 'T') {
             serPort.read();
             sendText("Hello World !", false);
@@ -546,13 +577,32 @@ Serial.println("");
             sendTiFile(false, true);
             reboot();
             return;
-          } else if (serPort.peek() == 'K') {
+          } 
+          else if (serPort.peek() == 'K') {
             serPort.read();
             // send PRGM from flashMem
             sendFlashFileToTi();
             reboot();
             return;
-          }
+          } else if (serPort.peek() == 'L') {
+            serPort.read();
+            // launch PRGM
+            relaunchKeybPrgm();
+            reboot();
+            return;
+          } else if ( serPort.peek() == 'W' ) {
+            serPort.read();
+            wakeUpCalc();
+            reboot();
+            return;
+          } 
+          // else if ( serPort.peek() == 'w' ) {
+          //   serPort.read();
+          //   sleepCalc(true);
+          //   reboot();
+          //   return;
+          // }
+
           else if (serPort.peek() == 'D') {
             serPort.read();
             // DUMMY commanded mode
