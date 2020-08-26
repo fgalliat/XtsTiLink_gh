@@ -26,9 +26,6 @@
 #define VAR_FILE_SIZE_OFFSET 86
 #define VAR_FILE_DATA_OFFSET (VAR_FILE_SIZE_OFFSET+2)
 
-// #define VAR_FILE_SIZE_OFFSET 76
-// #define VAR_FILE_DATA_OFFSET (VAR_FILE_SIZE_OFFSET+4)
-
 #define REQ_SCREENSHOT 0x6D
 #define REQ_BACKUP     0xA2
 #define REP_OK         0x56
@@ -203,20 +200,20 @@ void TI_xdp(char data[], int dataLen, int sendingMode, bool silent, int& dtLen, 
       sum += (uint8_t)data[0];	
       sum += (uint8_t)data[1];	
       ti_send( (uint8_t*)data, 2);
-outprintln(F("FLH > VarLen"));
+      // outprintln(F("FLH > VarLen"));
 
       uint8_t D[1];
       for (int i = 0; i < dataLen-2; i++) { 
         D[0] = pgm_read_byte_near(FILE_CONTENT + VAR_FILE_DATA_OFFSET + i);
 
-        // if ( i == dataLen - 2 - 3 ) {
-        //    D[0] = (uint8_t)( archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO );
-        // }
+        #if MODE_92P_ASM
+        if ( i == dataLen - 2 - 3 ) {
+           D[0] = (uint8_t)( archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO );
+        }
+        #endif
         
         sum += (uint8_t)D[0];	
         ti_send( (uint8_t*)D, 1);
-        outprint(F("FLH > "));
-        outprintln(i);
       }
       delay( DEFAULT_POST_DELAY/2 );
     } else if ( sendingMode == SEND_MODE_SERIAL ) {
@@ -254,7 +251,7 @@ outprintln(F("FLH > VarLen"));
       }
       //delay( DEFAULT_POST_DELAY/2 );
     } else {
-      outprint(F("OUPS !!!"));
+      outprint(F("E:OUPS !!!"));
     } 
 
     delay( DEFAULT_POST_DELAY/2 );
@@ -275,9 +272,8 @@ outprintln(F("FLH > VarLen"));
 
     ti_send(result, 2);
     delay( DEFAULT_POST_DELAY );
-    outprintln(F("FLH > CHKSUM"));
-
-    DBUG(result, 2); // just to verify
+    // outprintln(F("FLH > CHKSUM"));
+    // DBUG(result, 2); // just to verify
 
 	}
 
@@ -350,8 +346,9 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   // prgm name cant start by '_'
   fileName = (char*)"main\\bbb";
 
-
+  #if MODE_92P_BAS
   fileName = (char*)"main\\keyb";
+  #endif
 
   if ( fileType == FTYPE_ASM ) {
     fileName = (char*)"main\\tetris";
@@ -368,7 +365,9 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   d1 = pgm_read_byte_near(FILE_CONTENT + i++);
 
   int rlen = (d0*256)+d1;
+  #if MODE_92P_ASM
   outprint("Var len = "); outprint(rlen); outprint("\n");
+  #endif
   initDatasLen = rlen; // up to 'DC'
 
   if ( true ) {
@@ -393,7 +392,7 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   }
 }
 
-  outprint(F("Var sending : ")); outprint(fileName); 
+  outprint(F("I:Var sending : ")); outprint(fileName); 
     outprint(" "); outprint(initDatasLen);
     outprint(F(" bytes long ")); outprint(fileType);
     outprint(" "); outprintln(sendingMode);
@@ -452,7 +451,7 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
       }
       dataLen = 2 + initDatasLen;
   } else {
-      outprint(F("Oups ftype"));
+      outprint(F("E:Oups ftype"));
   }
 
    
@@ -469,49 +468,41 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   // == RTS ==
   TI_header(fileName, fileType, dataLen, silent, len, true);
   delay(postDelay);
-  outprintln(F("Header"));
 
   uint8_t recv[4];
   
   // == ACK ==
-  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK")); return -1; }
-  outprintln(F("< ACK"));
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("E:failed to read ACK")); return -1; }
   
   // == CTS ==
-  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read CTS")); return -1; }
-  outprintln(F("< CTS"));
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("E:failed to read CTS")); return -1; }
   
   // == ACK ==
   uint8_t B[4] = { 0x09, 0x56, 0x00, 0x00 };
   ti_send(B, 4);
   delay(postDelay/2);
-  outprintln(F("> ACK"));
   
   // == XDP == 
   TI_xdp(data, dataLen, sendingMode, silent, len, archived);
   delay(postDelay/2);
-  outprintln(F("> XDP"));
   
   // == ACK ==
-  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (2)")); return -1; }
-  outprintln(F("< ACK"));
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("E:failed to read ACK (2)")); return -1; }
   
   // == EOT ==
   uint8_t D[4] = { 0x09, 0x92, 0x00, 0x00 };
   ti_send(D, 4);
   delay(postDelay/2);  
-  outprintln(F("> EOT"));
   
   // ACK ==
-  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("failed to read ACK (3)")); return -1; }
-  outprintln(F("< ACK"));
+  ti_recv(recv, 4, true); if ( recv[1] == 0x5a ) { outprintln(F("E:failed to read ACK (3)")); return -1; }
 
-  outprintln(F("Var sent"));
+  outprintln(F("I:Var sent"));
   
   if ( autolaunch ) {
-    outprintln(F("Launch Var"));
+    outprintln(F("I:Launch Var"));
 
-    ti_sendKeyStroke( 0x0107 ); // CLEAR from TI92 manual p.484
+    ti_sendKeyStroke( 0x0107 ); // CLEAR from TI92 manual p.484 (0x0107 > 263)
     ti_sendKeyStrokes(fileName);
     ti_sendKeyStrokes((char*)"()");
     if ( !autolaunchNoEnter ) {
@@ -535,7 +526,7 @@ static int ti_sendKeyStroke(int data) {
   uint8_t D[4] = { PC_2_TI, CMD_REMOTE, (uint8_t)(data%256), (uint8_t)(data/256) };
   ti_send(D, 4);
   delay(DEFAULT_POST_DELAY/2);
-  ti_recv(D, 4); if ( D[1] != REP_OK ) { outprint("failed to read ACK"); outprintln(D[1]); return -1; }
+  ti_recv(D, 4); if ( D[1] != REP_OK ) { outprint("E:failed to read ACK"); outprintln(D[1]); return -1; }
   delay(DEFAULT_POST_DELAY/2);
   return 0;
 }

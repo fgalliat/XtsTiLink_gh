@@ -5,14 +5,19 @@
 keyb()
 Prgm
 
+Send {0}
+
 0\->\c
- While c\!=\264
+ "4360 -> 2nd+QUIT"
+ While c\!=\4360
    0\->\c
    While c=0
-  getKey()\->\c
+     getKey()\->\c
    endWhile
    Send {c}
  endWhile
+
+Send {65535}
 
 EndPrgm
 

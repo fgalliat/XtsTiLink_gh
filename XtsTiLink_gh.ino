@@ -1,7 +1,7 @@
 /******************
 * Ti (92) control Program w/ an Arduino
 *
-* Xtase - fgalliat @May2017
+* Xtase - fgalliat @May2017 @Aug2020
 *
 *
 * Wiring :
@@ -16,9 +16,9 @@
 *
 * Functions :
 * - ScreenShot
-* - Kbd reading w/ a local PRGM 
+* - Kbd reading w/ a local PRGM (asm version & basic version)
 * - getTime (needs CTS managment)
-* - Silently send an STR Var 
+* - Silently send an STR Var / Get as CBL
 * - ABLE to SEND a .92P file stored in flashMem (BEWARE 2KB RAM limit for one shot sending)
 *    \___ can now call PRGM just after download (by TI Keyboard Controlling)
 *    \___ able to send it as ARCHIVE or not
@@ -40,9 +40,13 @@
 //#include "bbb.h"
 // #include "tetrisgb.h"  // Works well on a TI92+ (as ASM Var)
 
-// #include "xtsterm.92p.h"  // Works well on TI92-1 w/ Fargo
+#include "globals.h"
+
+#if MODE_92P_ASM
+ #include "xtsterm.92p.h"  // Works well on TI92-1 w/ Fargo
+#else
  #include "keyb.92p.h"  // TiBasic only keyb version (non tokenized WLINK92.EXE)
-// #include "keyb3.92p.h"  // TiBasic sample (non tokenized WLINK92.EXE)
+#endif
 
 #define TI_MODEL_92
 #include "tilink.h"
@@ -138,9 +142,6 @@ void dummyMode() {
   ti_resetLines();
 
   // see : https://internetofhomethings.com/homethings/?p=927
-      //const int MAX_READ_LEN = 32;
-      //const int MAX_READ_LEN = 1;
-      //const int MAX_READ_LEN = 8;
       const int MAX_READ_LEN = 32;
 
       memset(screen, 0x00, MAX_READ_LEN+1);
@@ -275,7 +276,7 @@ void dumpScreen() {
   // recvNb is always 0 !!! --> returns the available/remaining bytes ...
   recvNb = ti_recv(recv, 4); // ? 89 15 00 0F ? <TI92> <?> <LL> <HH> => 00 0F => 0F 00 = 3840 screen mem size
   if ( recvNb != 0 ) {
-    serPort.println("TI did not ACK'ed, abort");
+    serPort.println("E:TI did not ACK'ed, abort");
     return;
   }
   
@@ -293,7 +294,7 @@ void dumpScreen() {
   data[1] = REP_OK;
   ti_send(data, 4); // Arduino's ACK
   delay(50);
-  serPort.println("go 3");
+  // serPort.println("go 3");
 }
 
 void sendText(char* txt, bool CR=false) {
@@ -319,7 +320,7 @@ void CBL_CTS() {
 }
 
 void relaunchKeybPrgm() {
-  Serial.println("RELAUNCH keyb");
+  Serial.println("I:RELAUNCH keyb");
   ti_sendKeyStroke(264); // Esc
   delay(150);
   ti_sendKeyStroke(263); // Clear
@@ -335,6 +336,7 @@ void loop() {
   digitalWrite(13, HIGH);
   recvNb = ti_recv(recv, 2);
   
+  // ASM version PRGM starts
   if ( recvNb == 0 && recv[0] == 'X' && recv[1] == ':' ) {
     recvNb = ti_recv(recv, 6+1);
     //serPort.print( recvNb ); serPort.print( F(" ") ); serPort.print( recv[0] ); serPort.print( F(" ") ); serPort.println( recv[1] ); 
@@ -365,30 +367,18 @@ void loop() {
 
     bool cblSend = false;
     if ( recv[0] == 0x89 && recv[1] == 0x06 ) {
-      cblSend = true;
+      cblSend = true; // or calc SendVar ...
     }
 
-    int cpt = 2;
-    do {
-      recvNb = ti_recv( recv, 1 );
-      if ( cpt == 8 && recv[0] != 0x04 ) {
-        Serial.println("Not a CBL Send");
-        cblSend = false;
-      }
-      if ( recvNb != 0 ) { break; }
-      #if DBG_CBL
-        Serial.print( recv[0], HEX ); Serial.print( F(" ") );
-      #endif
-      cpt++;
-    } while(true);
-    #if DBG_CBL
-      Serial.println("");
-    #endif
-
-    
+    uint8_t sendHead[11]; // 2 frst already read ...
+    recvNb = ti_recv( sendHead, 11 );
+    if ( recvNb != 0 || sendHead[ 6 ] != 0x04 ) {
+      Serial.println("E:Not CBL");
+      cblSend = false;
+    }
 
     if ( cblSend ) {
-      if (false) Serial.println("Send to CBL");
+      if (false) Serial.println("Send for CBL");
 
       CBL_ACK();
       CBL_CTS();
@@ -396,8 +386,7 @@ void loop() {
       // 89 56 0 0 - Ti :ACK
       recvNb = ti_recv( recv, 4 );
       if ( recvNb != 0 ) {
-        Serial.println("(CBL) ACK failed");
-
+        Serial.println("E:CBL/ACK");
         if (true) { relaunchKeybPrgm(); return; }
       }
 
@@ -425,7 +414,7 @@ void loop() {
 #if 1
     recvNb = ti_recv( recv, 4 );
     if ( recvNb != 0 ) {
-      Serial.println("(CBL) DATA HEAD failed");
+      Serial.println("E:CBL/DT-HEAD");
     }
 
     int d0 = recv[2];
@@ -436,7 +425,7 @@ void loop() {
 
     recvNb = ti_recv( cbldata, dataLen+2 );
     if ( recvNb != 0 ) {
-      Serial.println("(CBL) DATA VALUE failed");
+      Serial.println("E:CBL/DT-VAL");
     }
 
     cbldata[dataLen] = 0x00; // remove CHK
@@ -447,15 +436,14 @@ void loop() {
     Serial.print("CBL:");
     Serial.println(value);
 #else
-    int kc = atoi( value );
+    int kc = atoi( value ); // assumes that there is only one value in { list }
 
-    char msg[5];
+    char msg[4];
     msg[0] = 'K';
     msg[1] = kc < 256 ? (char)kc : 0xFF;
     msg[2] = kc >> 8; // beware often be 0x00
     msg[3] = kc % 256;
-    msg[4] = 0x00;
-    Serial.println(msg);
+    Serial.write(msg, 4);
 
 #endif
 
@@ -480,16 +468,14 @@ void loop() {
 Serial.println("");
 #endif
 
-CBL_ACK();
+      CBL_ACK();
 
-// 89 92 0 0 - Ti : EOT
-recvNb = ti_recv( recv, 4 );
-if ( recvNb != 0 ) {
-  Serial.println("(CBL) EOT failed");
-}
-CBL_ACK();
-//Serial.println("(CBL) Success");
-
+      // 89 92 0 0 - Ti : EOT
+      recvNb = ti_recv( recv, 4 );
+      if ( recvNb != 0 ) {
+        Serial.println("E:CBL/EOT");
+      }
+      CBL_ACK();
     }
   }
 
@@ -556,9 +542,8 @@ CBL_ACK();
             sendText("Hello World !", false);
           } else if (serPort.peek() == 'P') {
             serPort.read();
-            // send PRGM
+            // send PRGM from Serial
             sendTiFile(false, true);
-
             reboot();
             return;
           } else if (serPort.peek() == 'K') {
@@ -587,23 +572,21 @@ CBL_ACK();
     ti_resetLines();
   }
 
-  if (PRESSED == digitalRead(BTN2)) {
-    sendFlashFileToTi();
-    return;
-  }
+  // if (PRESSED == digitalRead(BTN2)) {
+  //   sendFlashFileToTi();
+  //   return;
+  // }
 
-  if (PRESSED == digitalRead(BTN3)) {
-    ti_receiveBackup();
-    return;
-  }
+  // if (PRESSED == digitalRead(BTN3)) {
+  //   ti_receiveBackup();
+  //   return;
+  // }
 
 
-  if (PRESSED != digitalRead(BTN)) {
-    return;
-  }
-  serPort.println("go");
-  
-  
+  // if (PRESSED != digitalRead(BTN)) {
+  //   return;
+  // }
+  // serPort.println("go");
 }
 
 
@@ -619,8 +602,8 @@ void sendFlashFileToTi() {
 
   uint16_t flen = pgm_read_word_near( FILE_SIZE+0 );
 
-  Serial.print(F("-= Sending : ")); Serial.print( (char*)fqfn ); Serial.println(F(" =-"));
-  Serial.print(F("-= Bytes   : ")); Serial.print( flen ); Serial.println(F(" =-"));
+  Serial.print(F("I:-= Sending : ")); Serial.print( (char*)fqfn ); Serial.println(F(" =-"));
+  Serial.print(F("I:-= Bytes   : ")); Serial.print( flen ); Serial.println(F(" =-"));
 
   sendTiFile(true);
 
