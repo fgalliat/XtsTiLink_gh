@@ -242,9 +242,9 @@ void TI_xdp(char data[], int dataLen, int sendingMode, bool silent, int& dtLen, 
         serPort.readBytes( D, BLOC_LEN );
 
         for(int j=0; j < e; j++) { 
-          if ( i+j == dataLen - 2 - 3 ) {
-            D[j] = (uint8_t)( archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO );
-          }
+          // if ( i+j == dataLen - 2 - 3 ) {
+          //   D[j] = (uint8_t)( archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO );
+          // }
           sum += D[j];	
         } 
         ti_send( D, e);
@@ -258,14 +258,12 @@ void TI_xdp(char data[], int dataLen, int sendingMode, bool silent, int& dtLen, 
 		// 8+nameLength => 0
 		// 9+nameLength => 0
     sum &= 0xFFFF;
-		int checksum0 = sum % 256;
-		int checksum1 = (sum / 256);// & 0xFF;
+		int checksum0 = (unsigned char)(sum % 256);
+		int checksum1 = (unsigned char)(sum / 256);// & 0xFF;
 
     result[0] = checksum0;
     // temp Cf 2A 27 instead of 8C 27
     // result[0] = 0x8C; // 8C 27 two last bytes of file
-
-
     result[1] = checksum1;
 
     dtLen = finalLen;
@@ -274,7 +272,6 @@ void TI_xdp(char data[], int dataLen, int sendingMode, bool silent, int& dtLen, 
     delay( DEFAULT_POST_DELAY );
     // outprintln(F("FLH > CHKSUM"));
     // DBUG(result, 2); // just to verify
-
 	}
 
 
@@ -392,6 +389,8 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   }
 }
 
+// really start sending
+
   outprint(F("I:Var sending : ")); outprint(fileName); 
     outprint(" "); outprint(initDatasLen);
     outprint(F(" bytes long ")); outprint(fileType);
@@ -442,8 +441,8 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
 
   } else if (fileType == FTYPE_BAS || fileType == FTYPE_ASM) {
       // FROM a .92P content
-			data[0] = (char) ((initDatasLen + 0) / 256); // -2 instead of +3 ???? => http://merthsoft.com/linkguide/ti92/vars.html
-			data[1] = (char) ((initDatasLen + 0) % 256);
+			data[0] = (unsigned char) ((initDatasLen + 0) / 256); // -2 instead of +3 ???? => http://merthsoft.com/linkguide/ti92/vars.html
+			data[1] = (unsigned char) ((initDatasLen + 0) % 256);
       if ( initDatas != NULL ) {
         for (i = 0; i < initDatasLen; i++) {
           data[2 + i] = initDatas[i];

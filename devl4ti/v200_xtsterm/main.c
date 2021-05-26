@@ -81,7 +81,7 @@ volatile char bytes[byteBuffLen+1];
 volatile bool textDirty = false;
 volatile bool textDirtyScroll = false;
 
-const char* PRGM_VERSION = "XtsTiTerm 1.5.5ve";
+const char* PRGM_VERSION = "XtsTiTerm 2.0.0ve";
 
 void printSeg(char* str, int x, int y, int ll) {
   if ( ll <= 0 ) { return; }
@@ -440,8 +440,8 @@ void _main(void)
 	
 	while( true ) {
 		
-	  // ,1 -> byte
-  	// ,2 -> short ...	
+	    // ,1 -> byte
+  	    // ,2 -> short ...	
 	 	//if ( LIO_RecvData(inByte,1,4) ) {
 	 		
  		if ( LIO_RecvData(inputBuf,1,1) == 0 ) {

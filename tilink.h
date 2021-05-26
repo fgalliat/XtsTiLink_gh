@@ -87,9 +87,9 @@ static int __par_put(uint8_t *data, uint32_t len) {
       previousMillis = 0;
 
       while ((digitalRead(TIring) << 1 | digitalRead(TItip)) != 0x03) {
-        delay(1);
+        // delay(1);
         if (previousMillis++ > TIMEOUT) {
-          Serial.print("FAILED @ BYTE "); Serial.println(j);
+          // Serial.print("FAILED @ BYTE "); Serial.println(j);
           return -1;
           //return ERR_WRITE_TIMEOUT + j + 100 * bit;
         }

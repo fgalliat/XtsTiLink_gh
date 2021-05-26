@@ -50,7 +50,7 @@ Use Return Value=0
 Enable Error Return=0
 Save Screen=1
 [File Editing]
-Open File=C:\vm_mnt\dev\Arduino\XtsTiLink_gh\devl4ti\v200_xtsterm\Utils.h
+Open File=C:\vm_mnt\dev\Arduino\XtsTiLink_gh\devl4ti\v200_xtsterm\main.c
 [Included Files]
 C File 1=main.c
 Header File 1=Utils.h

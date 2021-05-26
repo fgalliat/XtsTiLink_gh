@@ -38,6 +38,7 @@ public class Test {
 	String varName = new File(filename).getName();
 	// volountary not lastIndexOf(..)
 	varName = varName.substring( 0, varName.indexOf(".") );
+	if ( varName.length() > 8 ) { varName = varName.substring(0,8); }
 	varName = "main\\"+varName;
 	mainSendPrgm(autoexec, filename, varName, kbdWait, autoExecLockEnter );
   }
@@ -130,6 +131,8 @@ static int min(int a, int b) { return a < b ? a : b; }
       int d1 = fis.read();
 	  blen = (d0*256)+d1;
 
+	  blen += 2;	// FIX @May2021
+
       _(blen+" bytes");
 
 	  _("Enter to start");
@@ -143,8 +146,8 @@ static int min(int a, int b) { return a < b ? a : b; }
 	  ArduinoMCU.writeBytes( varName.getBytes() );
 	  ArduinoMCU.writeByte( (byte)0x00 );
 
-	  if (fileName.toLowerCase().endsWith(".92p")) { ArduinoMCU.writeByte( (byte)0x01 ); }
-	  else { ArduinoMCU.writeByte( (byte)0x00 ); }
+	  if (fileName.toLowerCase().endsWith(".92p") || fileName.toLowerCase().endsWith(".v2p") ) { ArduinoMCU.writeByte( (byte)0x01 ); } // tibasic mode
+	  else { ArduinoMCU.writeByte( (byte)0x00 ); } // asm mode
 
 	  if (autoRun) { ArduinoMCU.writeByte( (byte) (autoExecLockEnter ? 0x02 : 0x01) ); }
 	  else { ArduinoMCU.writeByte( (byte)0x00 ); }
