@@ -1,11 +1,16 @@
 ## XtsTiLink project
 
-**Started @May 2017 - still working on @Aug 2020**
+**Started @May 2017 - still working on @Aug 2020 - @May2021**
+
 - project is as an early stage so : Ugly in a lot of parts
 - I'll try to clean it as soon as possible
 
 Project to transform TI92 (1st gen) to a Serial TTL Terminal
 using an Arduino as multipurposes "Link Cable"
+
+It now (@May2021) works for Ti Voyage 200 too (FIXED CBL reading routine + basic sample added)
+
+
 
 I initially designed this project for an Arduino UNO but
 used Arduino ProMini 5v (same specs, but smaller form factor)
@@ -22,7 +27,7 @@ BUT : don't use the ProMini 3v (it doesn't suppport TI's 5v logic & can't handle
 * /fs/      -> some content that can be sent to TI (it does not contains the used .92B because it's forbiden by law)
 * /picures/ -> diagrams & photographs about the process of my TI reborn
 * /docs/    -> guess ...
-* ./XtsTiLink.ino -> Arduino program for Serial Inteface
+* ./XtsTiLink.ino -> Arduino program for Serial Interface
 
 BEWARE w/ 3.3v Rapsberry / ESP32 logic
  - don't forget to protect RX line from Arduino 5v logic
