@@ -164,7 +164,8 @@ void dummyMode() {
       while(true) {
 
         while ( Serial.available() > 0 ) {
-          int ch = serPort.readBytes( screen, MAX_READ_LEN );
+          int t = min( MAX_READ_LEN, Serial.available() ); // read only what's available 
+          int ch = serPort.readBytes( screen, t );
           if ( ch <= 0 ) { break; }
 
           ti_send( screen, ch );
