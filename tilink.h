@@ -87,9 +87,12 @@ static int __par_put(uint8_t *data, uint32_t len) {
       previousMillis = 0;
 
       while ((digitalRead(TIring) << 1 | digitalRead(TItip)) != 0x03) {
-        if (previousMillis++ > TIMEOUT)
+        delay(1);
+        if (previousMillis++ > TIMEOUT) {
+          Serial.print("FAILED @ BYTE "); Serial.println(j);
           return -1;
           //return ERR_WRITE_TIMEOUT + j + 100 * bit;
+        }
       };
 
       if (byte & 1) {
@@ -98,7 +101,7 @@ static int __par_put(uint8_t *data, uint32_t len) {
         previousMillis = 0;
         while (digitalRead(TItip) == HIGH) {
           if (previousMillis++ > TIMEOUT)
-            return -1;
+            return -2;
            // return ERR_WRITE_TIMEOUT + 10 + j + 100 * bit;
         };
 
@@ -106,7 +109,7 @@ static int __par_put(uint8_t *data, uint32_t len) {
         previousMillis = 0;
         while (digitalRead(TItip) == LOW) {
           if (previousMillis++ > TIMEOUT)
-            return -1;
+            return -3;
            // return ERR_WRITE_TIMEOUT + 20 + j + 100 * bit;
         };
       } else {
@@ -115,7 +118,7 @@ static int __par_put(uint8_t *data, uint32_t len) {
         previousMillis = 0;
         while (digitalRead(TIring) == HIGH) {
           if (previousMillis++ > TIMEOUT)
-            return -1;
+            return -4;
             //return ERR_WRITE_TIMEOUT + 30 + j + 100 * bit;
         };
 
@@ -123,7 +126,7 @@ static int __par_put(uint8_t *data, uint32_t len) {
         previousMillis = 0;
         while (digitalRead(TIring) == LOW) {
           if (previousMillis++ > TIMEOUT)
-          return -1;
+          return -5;
             //return ERR_WRITE_TIMEOUT + 40 + j + 100 * bit;
         };
       }

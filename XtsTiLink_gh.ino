@@ -1,7 +1,7 @@
 /******************
 * Ti (92) control Program w/ an Arduino
 *
-* Xtase - fgalliat @May2017 @Aug2020
+* Xtase - fgalliat @May2017 @Aug2020 @May2021
 *
 *
 * Wiring :
@@ -333,13 +333,15 @@ void wakeUpCalc() {
 
 void CBL_ACK() {
   static uint8_t E[4] = { CBL_92, ACK, 0x00, 0x00 };
-  ti_send(E, 4);
+  int ok = ti_send(E, 4);
+  if ( ok != 0 ) { Serial.print("(!!) fail sending CBL-ACK : "); Serial.println(ok); }
   delay(3);
 }
 
 void CBL_CTS() {
   static uint8_t E[4] = { CBL_92, CTS, 0x00, 0x00 };
-  ti_send(E, 4);
+  int ok = ti_send(E, 4);
+  if ( ok != 0 ) { Serial.println("(!!) fail sending CBL-CTS"); }
   delay(3);
 }
 
@@ -353,6 +355,14 @@ void relaunchKeybPrgm() {
   ti_sendKeyStrokes("main\\keyb()");
   ti_sendKeyStroke(0x0D);
 }
+
+void debugDatas(uint8_t* data, int len) {
+  for (int i=0; i < len; i++) {
+    Serial.print( data[i], HEX ); Serial.print( F(" ") );
+  }
+  Serial.println();
+}
+
 
 void loop() {
   int recvNb = -1;
@@ -380,13 +390,17 @@ void loop() {
 
     // CBL : Send {1}
     // 89 6 7 0 3 0 0 0 4 1 FF 7 1 
-    // fixe pour une lite de 1 arg
+    // fixe pour une liste de 1 arg
+
+    // Ti Voyage 200 - Send {c} c = 53
+    // 89 6 8 0 4 0 0 0 4 1 FF 0 8 
+    // Ti Voyage 200 - Send {1}
+    // 89 6 8 0 3 0 0 0 4 1 FF 0 7 
 
     #define DBG_CBL 0
 
     #if DBG_CBL
-      Serial.print( recv[0], HEX ); Serial.print( F(" ") );
-      Serial.print( recv[1], HEX ); Serial.print( F(" ") );
+      debugDatas(recv, 2);
     #endif
 
     bool cblSend = false;
@@ -394,16 +408,28 @@ void loop() {
       cblSend = true; // or calc SendVar ...
     }
 
-    uint8_t sendHead[11]; // 2 frst already read ...
-    recvNb = ti_recv( sendHead, 11 );
-    if ( recvNb != 0 || sendHead[ 6 ] != 0x04 ) {
+    uint8_t headLength[1];
+    ti_recv( headLength, 1 );
+    #if DBG_CBL
+     Serial.print("i:Len to read : ");Serial.println(headLength[0]);
+    #endif
+
+    // 7 is 11 for ti92
+    // 8 is 12 for ti voyage 200
+    const int head = ( headLength[0] + 4 ) -1; // -1 for head len
+
+    uint8_t sendHead[head]; // 2 frst already read ...
+    recvNb = ti_recv( sendHead, head );
+    if ( recvNb != 0 || sendHead[ 6-1 ] != 0x04 ) { // -1 for head len
       Serial.println("E:Not CBL");
       cblSend = false;
     }
+    #if DBG_CBL
+      debugDatas(sendHead, head);
+    #endif
 
     if ( cblSend ) {
       if (false) Serial.println("Send for CBL");
-
       CBL_ACK();
       CBL_CTS();
 
@@ -411,7 +437,12 @@ void loop() {
       recvNb = ti_recv( recv, 4 );
       if ( recvNb != 0 ) {
         Serial.println("E:CBL/ACK");
-        if (true) { relaunchKeybPrgm(); return; }
+
+        #if DBG_CBL
+          debugDatas(recv, 4);
+        #endif
+
+        if (!true) { relaunchKeybPrgm(); return; }
       }
 
 // 89 6 7 0 3 0 0 0 4 1 FF 7 1
@@ -439,6 +470,9 @@ void loop() {
     recvNb = ti_recv( recv, 4 );
     if ( recvNb != 0 ) {
       Serial.println("E:CBL/DT-HEAD");
+      #if DBG_CBL
+        debugDatas(recv, 4);
+      #endif
     }
 
     int d0 = recv[2];
