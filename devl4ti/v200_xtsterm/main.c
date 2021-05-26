@@ -272,132 +272,136 @@ void dispOneChar(char ch) {
 					// let chars in the tty matrix
 					vt100EscCursor = 0;
 				}*/
-			} else if ( vt100Esc[1] == '(' ) { // MOA EXTENDED VT100
-				if ( vt100EscCursor == 3 && ch == 'J' ) {  // Ext VT100 - CLS draws only
-					low_cls();
-					vt100EscCursor = 0;
-				} else if ( vt100EscCursor >= 3 && ch == 'r' ) {  // Ext VT100 - draw RECT
-				  printSeg("RECT", 120, 0, 4);
+			} 
+			
+			// else if ( vt100Esc[1] == '(' ) { // MOA EXTENDED VT100
+			// 	if ( vt100EscCursor == 3 && ch == 'J' ) {  // Ext VT100 - CLS draws only
+			// 		low_cls();
+			// 		vt100EscCursor = 0;
+			// 	} else if ( vt100EscCursor >= 3 && ch == 'r' ) {  // Ext VT100 - draw RECT
+			// 	  printSeg("RECT", 120, 0, 4);
 				
-				  volatile int x=0,y=0,w=0,h=0,r=0;
-				  volatile int i; volatile char cc;
+			// 	  volatile int x=0,y=0,w=0,h=0,r=0;
+			// 	  volatile int i; volatile char cc;
 				  
-				  for(i=2; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
-				  	x = atoi_increment( x, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
-				  	y = atoi_increment( y, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
-				  	w = atoi_increment( w, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'r' ) { i++; break; }
-				  	h = atoi_increment( h, cc );
-				  }
+			// 	  for(i=2; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+			// 	  	x = atoi_increment( x, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+			// 	  	y = atoi_increment( y, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+			// 	  	w = atoi_increment( w, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+			// 	  	h = atoi_increment( h, cc );
+			// 	  }
 				  
-				  if ( cc != 'r' ) {		// optional corder ~radius~
-				  	for(; i < vt100EscCursor; i++) {
-					    cc = vt100Esc[i];
-					  	if ( cc == ';' || cc== 'r' ) { i++; break; }
-					  	r = atoi_increment( r, cc );
-					  }
-				  }
+			// 	  if ( cc != 'r' ) {		// optional corder ~radius~
+			// 	  	for(; i < vt100EscCursor; i++) {
+			// 		    cc = vt100Esc[i];
+			// 		  	if ( cc == ';' || cc== 'r' ) { i++; break; }
+			// 		  	r = atoi_increment( r, cc );
+			// 		  }
+			// 	  }
 				  
-				  xts_drawRoundedRect(x,y,w,h,r);
+			// 	  xts_drawRoundedRect(x,y,w,h,r);
 				  
-				  //volatile char msg[60];
-				  //sprintf(msg, "RECT(%d,%d,%d,%d -- %d)", x, y, w, h, r);
-				  //printSeg(msg, 120, 0, strlen(msg) );
+			// 	  //volatile char msg[60];
+			// 	  //sprintf(msg, "RECT(%d,%d,%d,%d -- %d)", x, y, w, h, r);
+			// 	  //printSeg(msg, 120, 0, strlen(msg) );
 
-					vt100EscCursor = 0;
-				} else if ( vt100EscCursor >= 3 && ch == 'l' ) {  // Ext VT100 - draw POLYLINE
-				  volatile int x=0,y=0,x2=0,y2=0;
-				  volatile int i; volatile char cc;
+			// 		vt100EscCursor = 0;
+			// 	} else if ( vt100EscCursor >= 3 && ch == 'l' ) {  // Ext VT100 - draw POLYLINE
+			// 	  volatile int x=0,y=0,x2=0,y2=0;
+			// 	  volatile int i; volatile char cc;
 				  
-				  i=2;
+			// 	  i=2;
 				  
-				  for(i=2; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
-				  	x = atoi_increment( x, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
-				  	y = atoi_increment( y, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
-				  	x2 = atoi_increment( x2, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 'l' ) { i++; break; }
-				  	y2 = atoi_increment( y2, cc );
-				  }
-				  xts_drawLine(x,y,x2,y2);
+			// 	  for(i=2; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+			// 	  	x = atoi_increment( x, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+			// 	  	y = atoi_increment( y, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+			// 	  	x2 = atoi_increment( x2, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+			// 	  	y2 = atoi_increment( y2, cc );
+			// 	  }
+			// 	  xts_drawLine(x,y,x2,y2);
 				  
-				  while( cc != 'l' ) {
-				  	x=x2; y=y2;
-				  	x2=0;y2=0;
+			// 	  while( cc != 'l' ) {
+			// 	  	x=x2; y=y2;
+			// 	  	x2=0;y2=0;
 				  	
-				  	for(; i < vt100EscCursor; i++) {
-					    cc = vt100Esc[i];
-					  	if ( cc == ';' || cc== 'l' ) { i++; break; }
-					  	x2 = atoi_increment( x2, cc );
-					  }
-					  for(; i < vt100EscCursor; i++) {
-					    cc = vt100Esc[i];
-					  	if ( cc == ';' || cc== 'l' ) { i++; break; }
-					  	y2 = atoi_increment( y2, cc );
-					  }
-					  xts_drawLine(x,y,x2,y2);
-				  }
+			// 	  	for(; i < vt100EscCursor; i++) {
+			// 		    cc = vt100Esc[i];
+			// 		  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+			// 		  	x2 = atoi_increment( x2, cc );
+			// 		  }
+			// 		  for(; i < vt100EscCursor; i++) {
+			// 		    cc = vt100Esc[i];
+			// 		  	if ( cc == ';' || cc== 'l' ) { i++; break; }
+			// 		  	y2 = atoi_increment( y2, cc );
+			// 		  }
+			// 		  xts_drawLine(x,y,x2,y2);
+			// 	  }
 				  
-					vt100EscCursor = 0;
-				} else if ( vt100EscCursor >= 3 && ch == 't' ) {  // Ext VT100 - draw text
-				  volatile int x=0,y=0,attr=0;
-				  volatile int i; volatile char cc;
-				  volatile char txt[60]; volatile int cursor = 0;
-				  i=2;
+			// 		vt100EscCursor = 0;
+			// 	} else if ( vt100EscCursor >= 3 && ch == 't' ) {  // Ext VT100 - draw text
+			// 	  volatile int x=0,y=0,attr=0;
+			// 	  volatile int i; volatile char cc;
+			// 	  volatile char txt[60]; volatile int cursor = 0;
+			// 	  i=2;
 				  
-				  for(i=2; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 't' ) { i++; break; }
-				  	x = atoi_increment( x, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' || cc== 't' ) { i++; break; }
-				  	y = atoi_increment( y, cc );
-				  }
-				  for(; i < vt100EscCursor; i++) {
-				    cc = vt100Esc[i];
-				  	if ( cc == ';' ) { i++; break; }
-				  	txt[ cursor++ ] = cc;
-				  }
+			// 	  for(i=2; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 't' ) { i++; break; }
+			// 	  	x = atoi_increment( x, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' || cc== 't' ) { i++; break; }
+			// 	  	y = atoi_increment( y, cc );
+			// 	  }
+			// 	  for(; i < vt100EscCursor; i++) {
+			// 	    cc = vt100Esc[i];
+			// 	  	if ( cc == ';' ) { i++; break; }
+			// 	  	txt[ cursor++ ] = cc;
+			// 	  }
 				  
-				  cc = vt100Esc[i];
-				  if ( cc >= '0' && cc <= '9' ) {
-				  	attr = cc-'0';
-				  }
+			// 	  cc = vt100Esc[i];
+			// 	  if ( cc >= '0' && cc <= '9' ) {
+			// 	  	attr = cc-'0';
+			// 	  }
 				  
-				  DrawStr(x,y,txt, attr == 2 ? A_REVERSE : A_NORMAL );
+			// 	  DrawStr(x,y,txt, attr == 2 ? A_REVERSE : A_NORMAL );
 				  
-				} /* else if ( vt100EscCursor > 2) {
-					// let chars in the tty matrix
-					vt100EscCursor = 0;
-				} */
-			}  else if (vt100EscCursor > 1) {
+			// 	} 
+			// 	/* else if ( vt100EscCursor > 2) {
+			// 		// let chars in the tty matrix
+			// 		vt100EscCursor = 0;
+			// 	} */
+			// }  
+			else if (vt100EscCursor > 1) {
 				// let chars in the tty matrix
 				vt100EscCursor = 0;
 			}
@@ -441,13 +445,13 @@ void _main(void)
 	while( true ) {
 		
 	    // ,1 -> byte
-  	    // ,2 -> short ...	
-	 	//if ( LIO_RecvData(inByte,1,4) ) {
+  	    // ,2 -> short ...
+	 	// unsigned short LIO_RecvData (void *dest, unsigned long size, unsigned long WaitDelay);
 	 		
  		if ( LIO_RecvData(inputBuf,1,1) == 0 ) {
 			dispOneChar( inputBuf[0] );
 			textDirty = true;
- 		} else {
+ 		} else if (textDirty) { // prevent from tty_cursY() division
  			render( tty_cursY() );
  		}
  		
