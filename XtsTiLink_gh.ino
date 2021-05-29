@@ -592,10 +592,10 @@ Serial.println("");
           serPort.read();
           if (serPort.peek() == 'R') {
             serPort.read();
-            reboot();
+            reboot();         // Reboot Arduino
           } else if (serPort.peek() == 'S') {
             serPort.read();
-            dumpScreen(); // DumpScreen in ASCII mode
+            dumpScreen();     // DumpScreen in ASCII mode
             reboot();
             return;
           } else if (serPort.peek() == 's') {
@@ -610,6 +610,16 @@ Serial.println("");
             serPort.read();
             // send PRGM from Serial
             sendTiFile(false, true);
+            reboot();
+            return;
+          } else if (serPort.peek() == 'p') {
+            serPort.read();
+            // receive TiVar to Serial
+            int err = receiveTiVar("main\\d");
+            if ( err != 0 ) {
+              Serial.print("Err : "); Serial.println(err);
+            }
+            delay(1000);
             reboot();
             return;
           } 

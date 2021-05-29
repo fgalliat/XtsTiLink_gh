@@ -6,6 +6,7 @@
 * 
 * Xtase - fgalliat May2017
 *
+* + Voyage 200 @May2021
 * 
 **************************/
 
@@ -650,7 +651,7 @@ void sendAbackup(uint16_t dataLen) {
 
  // goes to Serial
  int ti_receiveBackup() {
-   outprint("-BOF-\n");
+   outprint(F("-BOF-\n"));
 
    static uint8_t D[23] = { PC_2_TI, REQ_BACKUP, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1D, 0x0B, 0x6D, 0x61, 0x69, 0x6E, 0x5C, 0x62, 0x61, 0x63, 0x6B, 0x75, 0x70, 0x9F, 0x04 };
    ti_send(D, 23);
@@ -671,8 +672,8 @@ void sendAbackup(uint16_t dataLen) {
 
    int blocCpt = 0;
 
-   ti_recv(D, 4);  if ( D[1] != REP_OK ) { outprint("failed to read ACK : "); outprintln(D[1]); return -1; }
-   ti_recv(D, 16); if ( D[1] != (blocCpt == 0 ? 0x06 : 0x15) ) { outprint("failed to read BCK bloc (1)"); outprintln(D[1]); return -1; }
+   ti_recv(D, 4);  if ( D[1] != REP_OK ) { outprint(F("failed to read ACK : ")); outprintln(D[1]); return -1; }
+   ti_recv(D, 16); if ( D[1] != (blocCpt == 0 ? 0x06 : 0x15) ) { outprint(F("failed to read BCK bloc (1)")); outprintln(D[1]); return -1; }
 
     // serPort.print( "HED : " );
     // for(int i=0; i < 16; i++) {
@@ -686,8 +687,8 @@ void sendAbackup(uint16_t dataLen) {
       ti_send(E, 4); 
       ti_send(F, 4);
 
-      ti_recv(D, 4); if ( D[1] != REP_OK ) { outprint("failed to read ACK (2)"); outprintln(D[1]); return -1; }
-      ti_recv(D, 4); if ( D[1] != 0x15 ) { outprint("failed to read BCK bloc (2)"); outprintln(D[1]); return -1; }
+      ti_recv(D, 4); if ( D[1] != REP_OK ) { outprint(F("failed to read ACK (2)")); outprintln(D[1]); return -1; }
+      ti_recv(D, 4); if ( D[1] != 0x15 ) { outprint(F("failed to read BCK bloc (2)")); outprintln(D[1]); return -1; }
 
       int len = (D[3]*256) + D[2];
       //len -= 4;
@@ -727,7 +728,7 @@ void sendAbackup(uint16_t dataLen) {
           break;
         }
 
-        if ( D[1] != 0x06 ) { outprint("failed to read BCK bloc (3)"); outprintln(D[1]); return -1; }
+        if ( D[1] != 0x06 ) { outprint(F("failed to read BCK bloc (3)")); outprintln(D[1]); return -1; }
         ti_recv(D, 12); 
         
       // }
@@ -739,10 +740,189 @@ void sendAbackup(uint16_t dataLen) {
       serPort.write( (byte)0x00 );
       serPort.write( (byte)0x00 );
 
-   outprint("-EOF-\n");
+   outprint(F("-EOF-\n"));
 
    return 0;
  }
+
+ // =====================================================================
+ extern void debugDatas(uint8_t* data, int len);
+
+ void chkBloc(uint8_t* bloc, int howMany) {
+   uint16_t ck = 0x0000; // 16b max
+   for(int i=4; i < howMany-2; i++) { ck += bloc[i]; }
+   ck &= 0xFFFF;
+
+   //uint16_t ck = chksum(bloc, howMany);
+   bloc[howMany-2] = (uint8_t)( ck % 256 );
+   bloc[howMany-1] = (uint8_t)( ck >> 8 );
+ }
+
+ // ensure dest is wide enough
+ // varName is "main\\toto"
+ int getVarRecvHeader(uint8_t* dest, char* varName) {
+   int nlen = strlen( varName );
+   // cmd | 0x00 | 4x0 | nlen | varName | CHK
+   int headLen = 4 + 1 + 4 + 1 + nlen + 2;
+   memset( dest, 0x00, headLen );
+
+   dest[ 0 ] = PC_2_TI;
+   dest[ 1 ] = REQ_BACKUP;
+   dest[ 2 ] = 0x0C; // --> requires a String variable
+   dest[ 3 ] = 0x00;
+
+   // 1 x 0x00
+
+   // 4 x 0x00
+
+   dest[ 9 ] = nlen;
+   memcpy( &dest[10], varName, nlen );
+
+   chkBloc( dest, headLen );
+
+   debugDatas( dest, headLen );
+
+   return headLen;
+ }
+
+ int readACK( uint8_t* dest, bool wait = false ) {
+   memset( dest, 0x00, 4 );
+   ti_recv(dest, 4, wait);
+   if ( dest[1] != REP_OK ) { Serial.print(F("Instead OF ACK ")); debugDatas( dest, 4 ); return -1; }
+   return 0;
+ }
+
+ int readEOT( uint8_t* dest ) {
+   memset( dest, 0x00, 4 );
+   ti_recv(dest, 4);
+   if ( dest[1] != 0x92 ) { return -1; }
+   return 0;
+ }
+
+ int readCHK( uint8_t* dest ) {
+   Serial.println(F("Wait CHK"));
+   const int chkLen = 2;
+   int ok = ti_recv(dest, chkLen, true);
+   debugDatas( dest, chkLen );
+   return ok == 0;
+ }
+
+ int sendACK() {
+   static const uint8_t ack[4] = { PC_2_TI, REP_OK, 0x00, 0x00 };
+   int ok = ti_send(ack, 4);
+   return ok == 0;
+ }
+
+ int sendCTS() {
+   #define CTS 0x09
+   static const uint8_t cts[4] = { PC_2_TI, CTS, 0xFF, 0xFF };
+   // static const uint8_t cts[4] = { PC_2_TI, 0x09, 0x00, 0x00 };
+   int ok = ti_send(cts, 4);
+   return ok == 0;
+ }
+
+ // 
+ extern uint8_t screen[];
+ #define TMP_RAM screen
+
+ /*
+ Expermimental - String ONLY
+ */
+
+ int receiveTiVar(char* varName) {
+   int headLen = getVarRecvHeader( TMP_RAM, varName );
+   if ( headLen <= 0 ) { return -1; }
+   int ok = ti_send(TMP_RAM, headLen);
+   if ( ok != 0 ) { Serial.print(F("Fail to Send 1st packet : ")); Serial.println(ok); }
+   delay(DEFAULT_POST_DELAY);
+
+   // ------- Recv Ack + Var Header
+   ok = readACK( TMP_RAM );
+   if ( ok < 0 ) { return -2; }
+
+   ti_recv(TMP_RAM, 4);
+   if ( TMP_RAM[1] != 0x06 ) { return -3; }
+
+   // what means that byte ?
+   ti_recv(TMP_RAM, 1);
+
+   // 4x 0x00
+   ti_recv(TMP_RAM, 4);
+
+   // name len byte // w/o folder name
+   ti_recv(TMP_RAM, 1);
+   int nameLen = TMP_RAM[0] + 1; // seems to be 0 terminated !!!!
+   Serial.println(nameLen);
+
+   // read the varName // w/o folder name
+   ti_recv(TMP_RAM, nameLen);
+   Serial.print(F("Var : "));
+   for(int i=0; i < nameLen; i++) {Serial.write(TMP_RAM[i]);} 
+   Serial.println();
+
+   memset(TMP_RAM, 0x00, 4);
+   ok = readCHK( TMP_RAM );
+   if ( ok < 0 ) { return -4; }
+
+   // ------- Send ACK + CTS
+   Serial.println(F("Send ACK"));
+   ok = sendACK();
+   if ( ok < 0 ) { return -41; }
+   Serial.println(F("Send CTS"));
+   ok = sendCTS();
+   if ( ok < 0 ) { return -42; }
+
+   // ------- Recv Ack of CTS + Var Data
+   ok = readACK( TMP_RAM, true );
+   if ( ok < 0 ) { return -5; }
+
+   ti_recv(TMP_RAM, 4);
+   if ( TMP_RAM[1] != 0x15 ) { debugDatas( TMP_RAM, 4 ); return -6; }
+
+   // what means that byte ?
+   ti_recv(TMP_RAM, 1);
+   Serial.print(F("data ?? : "));
+   Serial.println(TMP_RAM[0]);
+
+   // 4x 0x00
+   ti_recv(TMP_RAM, 4);
+   Serial.print(F("data ?0? : "));
+   debugDatas( TMP_RAM, 4 );
+
+   // data len byte[?] --- (!!)
+   ti_recv(TMP_RAM, 1);
+   int dataLen = TMP_RAM[0];
+   Serial.print(F("data len : "));
+   Serial.println(dataLen);
+
+   // read the vardata --- (!!) have to fragment that
+   ti_recv(TMP_RAM, dataLen);
+
+   Serial.println(F("---- Var Data ----"));
+   for(int i=0; i < dataLen; i++) {
+    Serial.write(TMP_RAM[i]);
+   }
+   Serial.println();
+   debugDatas( TMP_RAM, dataLen );
+   Serial.println(F("---- Var EOF ----"));
+
+   ok = readCHK( TMP_RAM );
+   if ( ok < 0 ) { return -7; }
+
+   // ------- Send ACK
+   sendACK(); delay(DEFAULT_POST_DELAY/2);
+
+   // ------- Recv EOT
+   ok = readEOT( TMP_RAM );
+   if ( ok < 0 ) { return -8; }
+
+   // ------- Send ACK
+   sendACK(); delay(DEFAULT_POST_DELAY/2);
+
+   return 0;
+ }
+
+
 
 
 #endif
