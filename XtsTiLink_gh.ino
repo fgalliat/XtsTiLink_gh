@@ -452,26 +452,33 @@ if ( varSend ) {
 
     if ( varSend ) {
       if (!false) Serial.println(F("Send for TiVarSend"));
-      // CBL_ACK();
-      // CBL_CTS();
-
-      // ti_resetLines();
-      // recvNb = ti_recv( sendHead, head );
-      // debugDatas( sendHead, head );
-
-
       // just ignore this time wait for next packet reading loop
-
-
     } else if ( varSend2 ) {
       if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
       recvNb = ti_recv( sendHead, head );
-      // -> 8 0 0 0 = could be the size LSB -> MSB
+      // -> 8 0 0 0 = could be the var size LSB -> MSB
       // C = var Type : String
       // 1 = name len => 
       // 64 => 'd' : name
       // 79 0 => can be CHK
       // 0 8 0 0 0 C 1 64 0 79 0
+      debugDatas( sendHead, head );
+
+      int vnLen = sendHead[6];
+      char varName[8+1]; memset(varName, 0x00, 8+1);
+      for(int i=0; i < vnLen; i++) { varName[i]= sendHead[6+1+i]; }
+      if (!false) { Serial.print(F("TiVarSend >>")); Serial.println(varName); }
+
+      // 0x89 -> 0x09 - Ti92
+      // 0x88 -> 0x08 - Ti89 & tiVoyage200
+      const static uint8_t cACK[] = { 0x08, REP_OK, 0x00, 0x00 };
+      const static uint8_t cCTS[] = { 0x08, CTS, 0x00, 0x00 };
+      ti_send( cACK, 4 ); // ACK
+      ti_send( cCTS, 4 ); // CTS
+      if (!false) Serial.println(F("TiVarSend Waits data"));
+
+      // FIXME !!! = have to get len to read = see var size upper
+      recvNb = ti_recv( sendHead, head );
       debugDatas( sendHead, head );
     } else
 
