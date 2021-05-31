@@ -466,6 +466,12 @@ if ( varSend ) {
     } else if ( varSend2 ) {
       if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
       recvNb = ti_recv( sendHead, head );
+      // -> 8 0 0 0 = could be the size LSB -> MSB
+      // C = var Type : String
+      // 1 = name len => 
+      // 64 => 'd' : name
+      // 79 0 => can be CHK
+      // 0 8 0 0 0 C 1 64 0 79 0
       debugDatas( sendHead, head );
     } else
 
