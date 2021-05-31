@@ -398,39 +398,79 @@ void loop() {
     // Ti Voyage 200 - Send {1}
     // 89 6 8 0 3 0 0 0 4 1 FF 0 7 
 
-    #define DBG_CBL 0
+    #define DBG_CBL 1
 
-    #if DBG_CBL
-      debugDatas(recv, 2);
-    #endif
+    // #if DBG_CBL
+    //   debugDatas(recv, 2);
+    // #endif
 
+    // HERE : the Ti sends something by itself (CBL, Var)
     bool cblSend = false;
+    bool varSend = false;
+    bool varSend2 = false;
+
     if ( recv[0] == 0x89 && recv[1] == 0x06 ) {
-      cblSend = true; // or calc SendVar ...
+      cblSend = true;
+    } else if ( recv[0] == 0x89 && recv[1] == 0x68 ) {
+      varSend = true;
+    } else if ( recv[0] == 0x88 && recv[1] == 0x06 ) {
+      varSend2 = true;
+    } else {
+      Serial.print(F("E:Not a KNOWN Header : "));
+      debugDatas( recv, 2 );
     }
 
+    // should it be a data type ?
+    // 07 & 08 for CBL data - 0 whwn Ti Sends a Var
     uint8_t headLength[1];
     ti_recv( headLength, 1 );
     #if DBG_CBL
-     Serial.print("i:Len to read : ");Serial.println(headLength[0]);
+     Serial.print(F("i:Len to read : "));Serial.println(headLength[0], HEX);
     #endif
 
     // 7 is 11 for ti92
     // 8 is 12 for ti voyage 200
-    const int head = ( headLength[0] + 4 ) -1; // -1 for head len
+    /*const*/ int head = ( headLength[0] + 4 ) -1; // -1 for head len
+
+if ( varSend ) {
+  // 1st step only
+  // just a try ==> don"t know why -- TiVoyage200
+  // have to read : 0 55 1 55 1 53 2 65 0 1 1 80 7F 0 0 0 8 CB 7 48 8 CB F B1 
+  head = 24;
+}
 
     uint8_t sendHead[head]; // 2 frst already read ...
     recvNb = ti_recv( sendHead, head );
     if ( recvNb != 0 || sendHead[ 6-1 ] != 0x04 ) { // -1 for head len
-      Serial.println("E:Not CBL");
+      Serial.println(F("E:Not CBL packet"));
+      debugDatas( sendHead, head );
       cblSend = false;
     }
-    #if DBG_CBL
-      debugDatas(sendHead, head);
-    #endif
+    // #if DBG_CBL
+    //   debugDatas(sendHead, head);
+    // #endif
+
+    if ( varSend ) {
+      if (!false) Serial.println(F("Send for TiVarSend"));
+      // CBL_ACK();
+      // CBL_CTS();
+
+      // ti_resetLines();
+      // recvNb = ti_recv( sendHead, head );
+      // debugDatas( sendHead, head );
+
+
+      // just ignore this time wait for next packet reading loop
+
+
+    } else if ( varSend2 ) {
+      if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
+      recvNb = ti_recv( sendHead, head );
+      debugDatas( sendHead, head );
+    } else
 
     if ( cblSend ) {
-      if (false) Serial.println("Send for CBL");
+      if (false) Serial.println(F("Send for CBL"));
       CBL_ACK();
       CBL_CTS();
 

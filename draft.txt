@@ -1,0 +1,26 @@
+Ti manual STR Var Sending "main\d" 'd' is 0x64
+"abc"->d
+
+E:Not a CBL Header : 89 68 
+
+i:Len to read : 0
+E:Not CBL packet
+0 55 1 55 1 53 2 65 0 1 1 80 7F 0 0 0 8 CB 7 48 8 CB F B1 
+________________
+E:Not a KNOWN Header : 88 6 ----> 88 is TI89 id/ 6 is send cmd ...
+i:Len to read : 8
+E:Not CBL packet
+0 8 0 0 0 C 1 64 0 79 0 
+  --> seems to be that : 0c str, 1 name long, 'd'
+________________
+
+i:Len to read : 0
+E:Not CBL packet
+0 55 1 55 1 53 2 7C 0 1 2 0 0 1 0 0 8 CB 7 5F 8 CB F C2 
+Send for TiVarSend
+i:Len to read : 8
+E:Not CBL packet
+0 8 0 0 0 C 1 64 0 79 0 
+Send for TiVarSend 2nd step
+0 8 0 0 0 C 1 64 0 79 0 
+
