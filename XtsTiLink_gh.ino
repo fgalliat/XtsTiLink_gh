@@ -475,11 +475,16 @@ if ( varSend ) {
       const static uint8_t cCTS[] = { 0x08, CTS, 0x00, 0x00 };
       ti_send( cACK, 4 ); // ACK
       ti_send( cCTS, 4 ); // CTS
+
+      ti_recv( TMP_RAM, 4 );
       if (!false) Serial.println(F("TiVarSend Waits data"));
 
       // FIXME !!! = have to get len to read = see var size upper
-      recvNb = ti_recv( sendHead, head );
-      debugDatas( sendHead, head );
+      //       v                  a  b  c      ch ch 
+      // 88 15 C 0 0 0 0 0 0 6 0 61 62 63 0 2D 59 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+      memset( TMP_RAM, 0x00, 32 );
+      recvNb = ti_recv( TMP_RAM, 32 );
+      debugDatas( TMP_RAM, 32 );
     } else
 
     if ( cblSend ) {
