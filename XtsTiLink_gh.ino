@@ -1,5 +1,5 @@
 /******************
-* Ti (92) control Program w/ an Arduino
+* Ti-92 / V200 control Program w/ an Arduino
 *
 * Xtase - fgalliat @May2017 @Aug2020 @May2021
 *
@@ -64,16 +64,14 @@ void sendFlashFileToTi();
 // max alowed to store big packets
 #define MAX_ARDUINO_MEM_SIZE 870
 
-// 3840 bytes for a TI-92 => to HUDGE to fit in RAM
+// 3840 bytes for a TI-92 => too HUDGE to fit in RAM
 #define MAX_TI_SCR_SIZE ( TI_SCREEN_HEIGHT*(TI_SCREEN_WIDTH/8) )
 
-  // to have complete scanlines
+// to have complete scanlines
 #define nbScanlines ( MAX_ARDUINO_MEM_SIZE / (TI_SCREEN_WIDTH/8) )
 
 #define SCREEN_SEG_MEM ( nbScanlines * (TI_SCREEN_WIDTH/8) )
 
-// for forwarding ref
-//const int __SCREEN_SEG_MEM = SCREEN_SEG_MEM;
 // ===================== RAM Settings ==================
 
 uint8_t screen[SCREEN_SEG_MEM];
@@ -85,9 +83,6 @@ void dummyMode();
   uint8_t data[4] = { PC_2_TI, REQ_SCREENSHOT, 0x00, 0x00 }; // request screen shot (silent mode)
   uint8_t recv[10];
   char intValue[10];
-
-  
-  
 
 void setup() {
   __SCREEN_SEG_MEM = SCREEN_SEG_MEM;
@@ -222,23 +217,15 @@ void dummyMode() {
               else if ( kc >= 337 && kc <= 348 ) {
                 // Arrows key
                 if ( kc == 338 ) { // UP
-                  //serPort.write( 27 );
-                  //serPort.print(F("[0A"));
                   serPort.write( 27 );
                   serPort.print(F("[A"));
                 } else if ( kc == 344 ) { // DOWN
-                  //serPort.write( 27 );
-                  //serPort.print(F("[0B"));
                   serPort.write( 27 );
                   serPort.print(F("[B"));
                 } else if ( kc == 337 ) { // LEFT
-                  //serPort.write( 27 );
-                  //serPort.print(F("[0DA"));
                   serPort.write( 27 );
                   serPort.print(F("[D"));
                 } else if ( kc == 340 ) { // RIGHT
-                  //serPort.write( 27 );
-                  //serPort.print(F("[0C"));
                   serPort.write( 27 );
                   serPort.print(F("[C"));
                 } 
@@ -283,7 +270,7 @@ void dumpScreen(bool ascii=true) {
   // recvNb is always 0 !!! --> returns the available/remaining bytes ...
   recvNb = ti_recv(recv, 4); // ? 89 15 00 0F ? <TI92> <?> <LL> <HH> => 00 0F => 0F 00 = 3840 screen mem size
   if ( recvNb != 0 ) {
-    serPort.println("E:TI did not ACK'ed, abort");
+    serPort.println(F("E:TI did not ACK'ed, abort"));
     return;
   }
   
@@ -335,19 +322,19 @@ void wakeUpCalc() {
 void CBL_ACK() {
   static uint8_t E[4] = { CBL_92, ACK, 0x00, 0x00 };
   int ok = ti_send(E, 4);
-  if ( ok != 0 ) { Serial.print("(!!) fail sending CBL-ACK : "); Serial.println(ok); }
+  if ( ok != 0 ) { Serial.print(F("(!!) fail sending CBL-ACK : ")); Serial.println(ok); }
   delay(3);
 }
 
 void CBL_CTS() {
   static uint8_t E[4] = { CBL_92, CTS, 0x00, 0x00 };
   int ok = ti_send(E, 4);
-  if ( ok != 0 ) { Serial.println("(!!) fail sending CBL-CTS"); }
+  if ( ok != 0 ) { Serial.println(F("(!!) fail sending CBL-CTS")); }
   delay(3);
 }
 
 void relaunchKeybPrgm() {
-  Serial.println("I:RELAUNCH keyb");
+  Serial.println(F("I:RELAUNCH keyb"));
   ti_sendKeyStroke(264); // Esc
   delay(150);
   ti_sendKeyStroke(263); // Clear
@@ -500,7 +487,7 @@ if ( varSend ) {
       // 89 56 0 0 - Ti :ACK
       recvNb = ti_recv( recv, 4 );
       if ( recvNb != 0 ) {
-        Serial.println("E:CBL/ACK");
+        Serial.println(F("E:CBL/ACK"));
 
         #if DBG_CBL
           debugDatas(recv, 4);
@@ -533,7 +520,7 @@ if ( varSend ) {
 #if 1
     recvNb = ti_recv( recv, 4 );
     if ( recvNb != 0 ) {
-      Serial.println("E:CBL/DT-HEAD");
+      Serial.println(F("E:CBL/DT-HEAD"));
       #if DBG_CBL
         debugDatas(recv, 4);
       #endif
@@ -547,7 +534,7 @@ if ( varSend ) {
 
     recvNb = ti_recv( cbldata, dataLen+2 );
     if ( recvNb != 0 ) {
-      Serial.println("E:CBL/DT-VAL");
+      Serial.println(F("E:CBL/DT-VAL"));
     }
 
     cbldata[dataLen] = 0x00; // remove CHK
@@ -555,7 +542,7 @@ if ( varSend ) {
 
     char* value = &cbldata[5]; // just after 0x20, ends w/ 0x00
 #if 0
-    Serial.print("CBL:");
+    Serial.print(F("CBL:"));
     Serial.println(value);
 #else
     int kc = atoi( value ); // assumes that there is only one value in { list }
@@ -595,7 +582,7 @@ Serial.println("");
       // 89 92 0 0 - Ti : EOT
       recvNb = ti_recv( recv, 4 );
       if ( recvNb != 0 ) {
-        Serial.println("E:CBL/EOT");
+        Serial.println(F("E:CBL/EOT"));
       }
       CBL_ACK();
     }
@@ -633,8 +620,6 @@ Serial.println("");
   //else 
   
   if (serPort.available() > 0) {
-    //int len = Serial.available();
-    //if ( len > 0 ) {
 
       if ( serPort.peek() == 'b' ) {
         serPort.read();
@@ -671,14 +656,12 @@ Serial.println("");
             sendText("Hello World !", false);
           } else if (serPort.peek() == 'P') {
             serPort.read();
-            // send PRGM from Serial
-            sendTiFile(false, true);
+            sendTiFile(false, true);  // send PRGM from Serial (silent mode)
             reboot();
             return;
           } else if (serPort.peek() == 'p') {
             serPort.read();
-            // receive TiVar to Serial
-            int err = receiveTiVar("main\\d");
+            int err = receiveTiVar("main\\d"); // receive TiVar to Serial (silent mode)
             if ( err != 0 ) {
               Serial.print("Err : "); Serial.println(err);
             }
@@ -688,8 +671,7 @@ Serial.println("");
           } 
           else if (serPort.peek() == 'K') {
             serPort.read();
-            // send PRGM from flashMem
-            sendFlashFileToTi();
+            sendFlashFileToTi(); // send PRGM from flashMem (silent mode)
             reboot();
             return;
           } else if (serPort.peek() == 'L') {
@@ -721,8 +703,7 @@ Serial.println("");
         } else {
           if (serPort.peek() == 'B') {
             serPort.read();
-            // NOT fully CRETIFIED
-            ti_receiveBackup();
+            ti_receiveBackup(); // NOT fully CRETIFIED
           }
         }
       }
@@ -734,13 +715,10 @@ Serial.println("");
   //   sendFlashFileToTi();
   //   return;
   // }
-
   // if (PRESSED == digitalRead(BTN3)) {
   //   ti_receiveBackup();
   //   return;
   // }
-
-
   // if (PRESSED != digitalRead(BTN)) {
   //   return;
   // }
@@ -764,12 +742,5 @@ void sendFlashFileToTi() {
   Serial.print(F("I:-= Bytes   : ")); Serial.print( flen ); Serial.println(F(" =-"));
 
   sendTiFile(true);
-
 }
-
-
-
-
-
-
 
