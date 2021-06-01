@@ -1,26 +1,22 @@
 Ti manual STR Var Sending "main\d" 'd' is 0x64
 "abc"->d
 
-E:Not a CBL Header : 89 68 
+TiVarSend >> name : d
+TiVarSend >> type : C
+TiVarSend >> varLength : 8
+TiVarSend Waits data
+88 15 C 0 0 0 0 0 0 6 0 61 62 63 0 2D 59 1 
 
-i:Len to read : 0
-E:Not CBL packet
-0 55 1 55 1 53 2 65 0 1 1 80 7F 0 0 0 8 CB 7 48 8 CB F B1 
-________________
-E:Not a KNOWN Header : 88 6 ----> 88 is TI89 id/ 6 is send cmd ...
-i:Len to read : 8
-E:Not CBL packet
-0 8 0 0 0 C 1 64 0 79 0 
-  --> seems to be that : 0c str, 1 name long, 'd'
-________________
+"abcdef"->d
 
-i:Len to read : 0
-E:Not CBL packet
-0 55 1 55 1 53 2 7C 0 1 2 0 0 1 0 0 8 CB 7 5F 8 CB F C2 
-Send for TiVarSend
-i:Len to read : 8
-E:Not CBL packet
-0 8 0 0 0 C 1 64 0 79 0 
-Send for TiVarSend 2nd step
-0 8 0 0 0 C 1 64 0 79 0 
+TiVarSend >> name : d
+TiVarSend >> type : C ---> String
+TiVarSend >> varLength : 11
+TiVarSend Waits data
+88 15 F 0 0 0 0 0 0 9 0 61 62 63 64 65 66 0 2D 8B 2 
 
+TiVarSend >> name : tisend
+TiVarSend >> type : B ---> Text
+TiVarSend >> varLength : 94
+TiVarSend Waits data
+88 15 62 0 0 0 0 0 0 5C 0 58 20 74 69 20 76 61 72 69 62 6C 65 20 73 65 6E 64 69 6E 67 20 28 6D 61 6E 75 61 6C 29 D 20 20 72 65 61 64 20 6F 6E 6C 79 20 67 6F 6F 64 20 6C 65 6E 67 74 68 D 20 20 64 20 69 73 20 38 20 62 79 74 65 73 20 6C 6F 6E 67 D 20 20 61 63 6B 20 3F D 20 20 45 4F 54 D 20 0 E0 1C 1D 

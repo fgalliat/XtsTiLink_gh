@@ -454,7 +454,15 @@ if ( varSend ) {
       int vnLen = sendHead[6];
       char varName[8+1]; memset(varName, 0x00, 8+1);
       for(int i=0; i < vnLen; i++) { varName[i]= sendHead[6+1+i]; }
-      if (!false) { Serial.print(F("TiVarSend >>")); Serial.println(varName); }
+
+      uint8_t varType = sendHead[5]; // 0C -> STR
+      uint32_t varLength = sendHead[1] + ( sendHead[2] << 8 ) + ( sendHead[3] << 16 ) + ( sendHead[4] << 24 );
+
+      if (!false) { 
+        Serial.print(F("TiVarSend >> name : ")); Serial.println(varName); 
+        Serial.print(F("TiVarSend >> type : ")); Serial.println(varType, HEX); 
+        Serial.print(F("TiVarSend >> varLength : ")); Serial.println(varLength); 
+      }
 
       // 0x89 -> 0x09 - Ti92
       // 0x88 -> 0x08 - Ti89 & tiVoyage200
@@ -469,15 +477,21 @@ if ( varSend ) {
       // FIXME !!! = have to get len to read = see var size upper
       //       v                  a  b  c      ch ch 
       // 88 15 C 0 0 0 0 0 0 6 0 61 62 63 0 2D 59 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-      memset( TMP_RAM, 0x00, 32 );
-      recvNb = ti_recv( TMP_RAM, 32 );
-      debugDatas( TMP_RAM, 32 );
+      const int prePacketLen = 10;
+      const int postPacketLen = 0; // CHK is a part of Var ?
+      uint32_t packetFullLength = prePacketLen + varLength + postPacketLen;
+      int usedPackeLen = min( __SCREEN_SEG_MEM, packetFullLength ); // do not overflow RAM for now ....
 
-      ti_send( cACK, 4 ); // ACK datas
-      recvNb = ti_recv( TMP_RAM, 4 ); // read EOT
-      ti_send( cACK, 4 ); // ACK EOT
+      memset( TMP_RAM, 0x00, usedPackeLen );
+      recvNb = ti_recv( TMP_RAM, usedPackeLen );
+      debugDatas( TMP_RAM, usedPackeLen );
 
-    } else
+      ti_send( cACK, 4 );             // ACK datas --------
+      recvNb = ti_recv( TMP_RAM, 4 ); // read EOT   certfied on V200 ( 0x88 instead of 0x89 for a ti92)
+      ti_send( cACK, 4 );             // ACK EOT   --------
+
+    } // end of VarSend2
+    else
 
     if ( cblSend ) {
       if (false) Serial.println(F("Send for CBL"));

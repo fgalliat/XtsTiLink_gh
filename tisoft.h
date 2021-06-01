@@ -138,7 +138,7 @@ void TI_header(const char* constCharFileName, int fileType, int dataLen, bool si
 
 // ======= reuse allocated screen mem-segment ===
 extern uint8_t screen[];
-// beware w/ that (filled by ain.ino)
+// beware w/ that (filled by main.ino)
 int __SCREEN_SEG_MEM = -1;
 // ==============================================
 
