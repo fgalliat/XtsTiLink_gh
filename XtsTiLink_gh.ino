@@ -456,7 +456,7 @@ if ( varSend ) {
     } else if ( varSend2 ) {
       if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
       recvNb = ti_recv( sendHead, head );
-      // -> 8 0 0 0 = could be the var size LSB -> MSB
+      // -> 8 0 0 0 = could be the var size LSB -> MSB (A + (B * 256) + (C * 65536) + ... )
       // C = var Type : String
       // 1 = name len => 
       // 64 => 'd' : name
@@ -485,6 +485,11 @@ if ( varSend ) {
       memset( TMP_RAM, 0x00, 32 );
       recvNb = ti_recv( TMP_RAM, 32 );
       debugDatas( TMP_RAM, 32 );
+
+      ti_send( cACK, 4 ); // ACK datas
+      recvNb = ti_recv( TMP_RAM, 4 ); // read EOT
+      ti_send( cACK, 4 ); // ACK EOT
+
     } else
 
     if ( cblSend ) {
