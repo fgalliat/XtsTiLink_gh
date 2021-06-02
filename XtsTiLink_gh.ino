@@ -471,20 +471,29 @@ if ( varSend ) {
       ti_send( cACK, 4 ); // ACK
       ti_send( cCTS, 4 ); // CTS
 
-      ti_recv( TMP_RAM, 4 );
-      if (!false) Serial.println(F("TiVarSend Waits data"));
+      ti_recv( TMP_RAM, 4 ); // read ACK CTS
 
-      // FIXME !!! = have to get len to read = see var size upper
-      //       v                  a  b  c      ch ch 
-      // 88 15 C 0 0 0 0 0 0 6 0 61 62 63 0 2D 59 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+      //       v              [   a  b  c      ch ch] 
+      // 88 15 C 0 0 0 0 0 0 6 0 61 62 63 0 2D 59 1 0 ....
+      // |-------------------|
       const int prePacketLen = 10;
-      const int postPacketLen = 0; // CHK is a part of Var ?
-      uint32_t packetFullLength = prePacketLen + varLength + postPacketLen;
-      int usedPackeLen = min( __SCREEN_SEG_MEM, packetFullLength ); // do not overflow RAM for now ....
+      memset( TMP_RAM, 0x00, prePacketLen );
+      recvNb = ti_recv( TMP_RAM, prePacketLen, true ); // ,true -> waits for big variables (ex. popbin.ppg -> 24716 bytes long) [FIX]
+      if (!false) Serial.println(F("TiVarSend >> Packet Header"));
+      debugDatas( TMP_RAM, prePacketLen );
 
-      memset( TMP_RAM, 0x00, usedPackeLen );
-      recvNb = ti_recv( TMP_RAM, usedPackeLen );
-      debugDatas( TMP_RAM, usedPackeLen );
+      // CHK is a part of Var ? -> YES
+      int usedPacketLen = min( __SCREEN_SEG_MEM, varLength ); // do not overflow MCU's RAM for now ....
+
+      if (!false) Serial.println(F("TiVarSend >> data"));
+      uint32_t total = 0;
+      while( total < varLength ) {
+        if ( total + usedPacketLen > varLength ) { usedPacketLen = (varLength - total); }
+        memset( TMP_RAM, 0x00, usedPacketLen );
+        recvNb = ti_recv( TMP_RAM, usedPacketLen );
+        debugDatas( TMP_RAM, usedPacketLen );
+        total += usedPacketLen;
+      }
 
       ti_send( cACK, 4 );             // ACK datas --------
       recvNb = ti_recv( TMP_RAM, 4 ); // read EOT   certfied on V200 ( 0x88 instead of 0x89 for a ti92)
