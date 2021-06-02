@@ -358,21 +358,18 @@ void loop() {
   digitalWrite(13, HIGH);
   recvNb = ti_recv(recv, 2);
   
-  // ASM version PRGM starts
+  // ASM version PRGM starts - direct bytes
   if ( recvNb == 0 && recv[0] == 'X' && recv[1] == ':' ) {
     recvNb = ti_recv(recv, 6+1);
-    //serPort.print( recvNb ); serPort.print( F(" ") ); serPort.print( recv[0] ); serPort.print( F(" ") ); serPort.println( recv[1] ); 
-    //if ( recvNb == 0 && recv[0] == 0xFF && recv[1] == 'b' ) {
     if ( recvNb == 0 && recv[0] == '?' && recv[1] == 'b' ) {
       // X:begin\n
       // dummy serial mode : XtsTerm.92p
-
       dummyMode();
     }
   }
 
-  // dummy from Ti
-  else if ( recvNb == 0 ) {
+  // dummy from Ti - any other content
+  else if ( recvNb == 0 ) { // could read some bytes (2 requested)
     // SendCalc c (c=102)
     // 89 6 7 0 5 0 0 0 0 1 63 69 0 
 
@@ -385,29 +382,27 @@ void loop() {
     // Ti Voyage 200 - Send {1}
     // 89 6 8 0 3 0 0 0 4 1 FF 0 7 
 
-    #define DBG_CBL 1
-
+    #define DBG_CBL 0
     // #if DBG_CBL
     //   debugDatas(recv, 2);
     // #endif
 
     // HERE : the Ti sends something by itself (CBL, Var)
     bool cblSend = false;
-    bool varSend = false;
+    bool varSend1 = false; // Garbage ? Sending Packet
     bool varSend2 = false;
 
     if ( recv[0] == 0x89 && recv[1] == 0x06 ) {
-      cblSend = true;
+      cblSend = true;  // Ti sends to "CBL"
     } else if ( recv[0] == 0x89 && recv[1] == 0x68 ) {
-      varSend = true;
+      varSend1 = true; // Ti send 1st time (garbage ?)
     } else if ( recv[0] == 0x88 && recv[1] == 0x06 ) {
-      varSend2 = true;
+      varSend2 = true; // Ti send a Var (manual mode)
     } else {
       Serial.print(F("E:Not a KNOWN Header : "));
       debugDatas( recv, 2 );
     }
 
-    // should it be a data type ?
     // 07 & 08 for CBL data - 0 whwn Ti Sends a Var
     uint8_t headLength[1];
     ti_recv( headLength, 1 );
@@ -417,28 +412,29 @@ void loop() {
 
     // 7 is 11 for ti92
     // 8 is 12 for ti voyage 200
-    /*const*/ int head = ( headLength[0] + 4 ) -1; // -1 for head len
+    int head = ( headLength[0] + 4 ) -1; // -1 for head len
 
-if ( varSend ) {
-  // 1st step only
-  // just a try ==> don"t know why -- TiVoyage200
-  // have to read : 0 55 1 55 1 53 2 65 0 1 1 80 7F 0 0 0 8 CB 7 48 8 CB F B1 
-  head = 24;
-}
+    if ( varSend1 ) {
+      // 1st step only
+      // just a try ==> don"t know why -- TiVoyage200
+      // have to read : 0 55 1 55 1 53 2 65 0 1 1 80 7F 0 0 0 8 CB 7 48 8 CB F B1 
+      head = 24;
+    }
 
     uint8_t sendHead[head]; // 2 frst already read ...
     recvNb = ti_recv( sendHead, head );
-    if ( recvNb != 0 || sendHead[ 6-1 ] != 0x04 ) { // -1 for head len
+
+    if ( cblSend && ( recvNb != 0 || sendHead[ 6-1 ] != 0x04 ) ) { // -1 for head len
       Serial.println(F("E:Not CBL packet"));
       debugDatas( sendHead, head );
       cblSend = false;
     }
-    // #if DBG_CBL
-    //   debugDatas(sendHead, head);
-    // #endif
+    #if DBG_CBL
+      debugDatas(sendHead, head);
+    #endif
 
-    if ( varSend ) {
-      if (!false) Serial.println(F("Send for TiVarSend"));
+    if ( varSend1 ) {
+      if (!false) Serial.println(F("Send for TiVarSend (? garbage ?)"));
       // just ignore this time wait for next packet reading loop
     } else if ( varSend2 ) {
       if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
@@ -449,7 +445,9 @@ if ( varSend ) {
       // 64 => 'd' : name
       // 79 0 => can be CHK
       // 0 8 0 0 0 C 1 64 0 79 0
-      debugDatas( sendHead, head );
+      #if DBG_CBL
+        debugDatas( sendHead, head );
+      #endif
 
       int vnLen = sendHead[6];
       char varName[8+1]; memset(varName, 0x00, 8+1);
@@ -468,10 +466,10 @@ if ( varSend ) {
       // 0x88 -> 0x08 - Ti89 & tiVoyage200
       const static uint8_t cACK[] = { 0x08, REP_OK, 0x00, 0x00 };
       const static uint8_t cCTS[] = { 0x08, CTS, 0x00, 0x00 };
-      ti_send( cACK, 4 ); // ACK
-      ti_send( cCTS, 4 ); // CTS
+      ti_send( cACK, 4 ); // send ACK
+      ti_send( cCTS, 4 ); // send CTS
 
-      ti_recv( TMP_RAM, 4 ); // read ACK CTS
+      ti_recv( TMP_RAM, 4 ); // read ACK of CTS
 
       //       v              [   a  b  c      ch ch] 
       // 88 15 C 0 0 0 0 0 0 6 0 61 62 63 0 2D 59 1 0 ....
@@ -479,13 +477,15 @@ if ( varSend ) {
       const int prePacketLen = 10;
       memset( TMP_RAM, 0x00, prePacketLen );
       recvNb = ti_recv( TMP_RAM, prePacketLen, true ); // ,true -> waits for big variables (ex. popbin.ppg -> 24716 bytes long) [FIX]
-      if (!false) Serial.println(F("TiVarSend >> Packet Header"));
-      debugDatas( TMP_RAM, prePacketLen );
+      #if DBG_CBL
+        if (!false) Serial.println(F("TiVarSend >> Packet Header"));
+        debugDatas( TMP_RAM, prePacketLen );
+      #endif
 
       // CHK is a part of Var ? -> YES
       int usedPacketLen = min( __SCREEN_SEG_MEM, varLength ); // do not overflow MCU's RAM for now ....
 
-      if (!false) Serial.println(F("TiVarSend >> data"));
+      if (!false) Serial.println(F("TiVarSend >> data : "));
       uint32_t total = 0;
       while( total < varLength ) {
         if ( total + usedPacketLen > varLength ) { usedPacketLen = (varLength - total); }
@@ -495,8 +495,8 @@ if ( varSend ) {
         total += usedPacketLen;
       }
 
-      ti_send( cACK, 4 );             // ACK datas --------
-      recvNb = ti_recv( TMP_RAM, 4 ); // read EOT   certfied on V200 ( 0x88 instead of 0x89 for a ti92)
+      ti_send( cACK, 4 );             // ACK datas -------- ( 0x88 instead of 0x89 for a ti92)
+      recvNb = ti_recv( TMP_RAM, 4 ); // read EOT   certified on V200
       ti_send( cACK, 4 );             // ACK EOT   --------
 
     } // end of VarSend2
@@ -608,8 +608,9 @@ Serial.println("");
         Serial.println(F("E:CBL/EOT"));
       }
       CBL_ACK();
-    }
-  }
+    } // end if cblSend
+
+  } // end if received some bytes from Ti
 
 
   // // from my Basic/asmrt program...
@@ -642,9 +643,10 @@ Serial.println("");
 
   //else 
   
+  // if receive some bytes from SeialPort
   if (serPort.available() > 0) {
 
-      if ( serPort.peek() == 'b' ) {
+      if ( serPort.peek() == 'b' ) { // send a backup to Ti92
         serPort.read();
         int d0 = serPort.read();
         int d1 = serPort.read();
@@ -657,53 +659,61 @@ Serial.println("");
         return;
       }
 
-      else if (serPort.peek() == '\\') {
+      else if (serPort.peek() == '\\') { // other commands mode
         serPort.read();
+
+        if (serPort.peek() == 'R') {
+          serPort.read();
+          if (serPort.peek() == 'B') { // Receive a Backup from Ti92 - limited feature
+            serPort.read();
+            ti_receiveBackup(); // NOT fully CRETIFIED
+          }
+        } else
+
         if (serPort.peek() == 'S') {
           serPort.read();
-          if (serPort.peek() == 'R') {
+          if (serPort.peek() == 'R') { // Reboot Arduino
             serPort.read();
-            reboot();         // Reboot Arduino
-          } else if (serPort.peek() == 'S') {
+            reboot();
+          } else if (serPort.peek() == 'S') { // DumpScreen in ASCII mode
             serPort.read();
-            dumpScreen();     // DumpScreen in ASCII mode
+            dumpScreen();
             reboot();
             return;
-          } else if (serPort.peek() == 's') {
+          } else if (serPort.peek() == 's') { // DumpScreen in BINARY mode
             serPort.read();
-            dumpScreen(false); // DumpScreen in BINARY mode
+            dumpScreen(false);
             reboot();
             return;
-          } else if (serPort.peek() == 'T') {
+          } else if (serPort.peek() == 'T') { // send some Text to Ti // by keycode control
             serPort.read();
             sendText("Hello World !", false);
-          } else if (serPort.peek() == 'P') {
+          } else if (serPort.peek() == 'P') { // send Var from Serial (silent mode)
             serPort.read();
-            sendTiFile(false, true);  // send PRGM from Serial (silent mode)
+            sendTiFile(false, true);
             reboot();
             return;
-          } else if (serPort.peek() == 'p') {
+          } else if (serPort.peek() == 'p') { // receive TiVar to Serial (silent mode)
             serPort.read();
-            int err = receiveTiVar("main\\d"); // receive TiVar to Serial (silent mode)
+            int err = receiveTiVar("main\\d");
             if ( err != 0 ) {
-              Serial.print("Err : "); Serial.println(err);
+              Serial.print(F("Err : ")); Serial.println(err);
             }
             delay(1000);
             reboot();
             return;
           } 
-          else if (serPort.peek() == 'K') {
+          else if (serPort.peek() == 'K') { // send Var from flashMem (silent mode)
             serPort.read();
-            sendFlashFileToTi(); // send PRGM from flashMem (silent mode)
+            sendFlashFileToTi();
             reboot();
             return;
-          } else if (serPort.peek() == 'L') {
+          } else if (serPort.peek() == 'L') { // control ti-keyb to launch a program
             serPort.read();
-            // launch PRGM
             relaunchKeybPrgm();
             reboot();
             return;
-          } else if ( serPort.peek() == 'W' ) {
+          } else if ( serPort.peek() == 'W' ) { // wakeUp tiCalc
             serPort.read();
             wakeUpCalc();
             reboot();
@@ -716,17 +726,11 @@ Serial.println("");
           //   return;
           // }
 
-          else if (serPort.peek() == 'D') {
+          else if (serPort.peek() == 'D') { // DUMMY commanded mode
             serPort.read();
-            // DUMMY commanded mode
             dummyMode();
             reboot();
             return;
-          }
-        } else {
-          if (serPort.peek() == 'B') {
-            serPort.read();
-            ti_receiveBackup(); // NOT fully CRETIFIED
           }
         }
       }
