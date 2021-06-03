@@ -36,8 +36,6 @@
 **************************/
 
 // embed comm PRGM
-//#include "PONG.h"
-//#include "bbb.h"
 // #include "tetrisgb.h"  // Works well on a TI92+ (as ASM Var)
 
 #include "globals.h"
@@ -136,7 +134,11 @@ void reboot() {
 
 void dummyMode() {
   int recvNb;
-  if (DBUG_DUMMY) serPort.println(F("DUMMY"));
+  #if ASCII_OUTPUT
+    if (DBUG_DUMMY) serPort.println(F("DUMMY"));
+  #else
+    serPort.print(F(OUT_BIN_ENTER_DUMMY));
+  #endif
 
   serPort.setTimeout(400);
 
@@ -170,12 +172,13 @@ void dummyMode() {
         if ( recvNb == 0 ) {
           if ( recv[0] == 'X' && recv[1] == ':' ) {
             recvNb = ti_recv(recv, 4+1);
-            //serPort.print( recvNb ); serPort.print( F(" ") ); serPort.print( recv[0] ); serPort.print( F(" ") ); serPort.println( recv[1] ); 
-            //if ( recvNb == 0 && recv[0] == 0xFF && recv[1] == 'e' ) {
             if ( recvNb == 0 && recv[0] == '?' && recv[1] == 'e' ) {
-              // X:end\n -> end of serial session
-              // break;
-              if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
+              // X:?end\n -> end of serial session
+              #if ASCII_OUTPUT
+                if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
+              #else
+                serPort.print(F(OUT_BIN_EXIT_DUMMY));
+              #endif
               reboot();
               return;
             } 
@@ -197,7 +200,7 @@ void dummyMode() {
                 intValue[i] = recv[i];
               }
               kc = atoi( intValue );
-              //Serial.print("found key ["); Serial.print(kc); Serial.print("] ("); Serial.print( (char)kc ); Serial.print(") \n");
+              //Serial.print(F("found key [")); Serial.print(kc); Serial.print(F("] (")); Serial.print( (char)kc ); Serial.print(F(") \n"));
               if ( kc == 264 ) { 
                 // Esc
                 kc = 27; 
@@ -233,7 +236,11 @@ void dummyMode() {
               else if ( kc == 4360 ) {
                 // 2nd + Quit
                 // - dirty trap -
-                if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
+                #if ASCII_OUTPUT
+                  if (DBUG_DUMMY) serPort.println(F("EXIT DUMMY"));
+                #else
+                  serPort.print(F(OUT_BIN_EXIT_DUMMY));
+                #endif
                 ti_recv(recv, 2+4+1);
                 reboot();
                 return;
@@ -251,7 +258,11 @@ void dummyMode() {
         //delay(5);
       } // end while dummy
 
-      if (DBUG_DUMMY) serPort.println(F("LEAVING DUMMY MODE"));
+      #if ASCII_OUTPUT
+        if (DBUG_DUMMY) serPort.println(F("LEAVING DUMMY MODE"));
+      #else
+        serPort.print(F(OUT_BIN_EXIT_DUMMY));
+      #endif
 }
 
 // to Serial ASCII for now
@@ -362,7 +373,7 @@ void loop() {
   if ( recvNb == 0 && recv[0] == 'X' && recv[1] == ':' ) {
     recvNb = ti_recv(recv, 6+1);
     if ( recvNb == 0 && recv[0] == '?' && recv[1] == 'b' ) {
-      // X:begin\n
+      // X:?begin\n
       // dummy serial mode : XtsTerm.92p
       dummyMode();
     }
@@ -434,10 +445,14 @@ void loop() {
     #endif
 
     if ( varSend1 ) {
-      if (!false) Serial.println(F("Send for TiVarSend (? garbage ?)"));
+      #if ASCII_OUTPUT
+        if (!false) Serial.println(F("Send for TiVarSend (? garbage ?)"));
+      #endif
       // just ignore this time wait for next packet reading loop
     } else if ( varSend2 ) {
-      if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
+      #if ASCII_OUTPUT
+        if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
+      #endif
       recvNb = ti_recv( sendHead, head );
       // -> 8 0 0 0 = could be the var size LSB -> MSB (A + (B * 256) + (C * 65536) + ... )
       // C = var Type : String
@@ -456,11 +471,17 @@ void loop() {
       uint8_t varType = sendHead[5]; // 0C -> STR
       uint32_t varLength = sendHead[1] + ( sendHead[2] << 8 ) + ( sendHead[3] << 16 ) + ( sendHead[4] << 24 );
 
-      if (!false) { 
-        Serial.print(F("TiVarSend >> name : ")); Serial.println(varName); 
-        Serial.print(F("TiVarSend >> type : ")); Serial.println(varType, HEX); 
-        Serial.print(F("TiVarSend >> varLength : ")); Serial.println(varLength); 
-      }
+      #if ASCII_OUTPUT
+        if (!false) { 
+          Serial.print(F("TiVarSend >> name : ")); Serial.println(varName); 
+          Serial.print(F("TiVarSend >> type : ")); Serial.println(varType, HEX); 
+          Serial.print(F("TiVarSend >> varLength : ")); Serial.println(varLength); 
+        }
+      #else
+        Serial.print(F(OUT_BIN_SENDVAR_NAME)); Serial.print(varName); Serial.write( 0x00 ); // VARNAME myVar 0-terminated
+        Serial.print(F(OUT_BIN_SENDVAR_TYPE)); Serial.write( varType );                     // VARTYPE 0x0C
+        Serial.print(F(OUT_BIN_SENDVAR_SIZE)); Serial.write( sendHead[4] ); Serial.write( sendHead[3] ); Serial.write( sendHead[2] ); Serial.write( sendHead[1] ); // VARSIZE MSB-LSB 
+      #endif
 
       // 0x89 -> 0x09 - Ti92
       // 0x88 -> 0x08 - Ti89 & tiVoyage200
@@ -485,19 +506,33 @@ void loop() {
       // CHK is a part of Var ? -> YES
       int usedPacketLen = min( __SCREEN_SEG_MEM, varLength ); // do not overflow MCU's RAM for now ....
 
-      if (!false) Serial.println(F("TiVarSend >> data : "));
+      #if ASCII_OUTPUT
+        if (!false) Serial.println(F("TiVarSend >> data : "));
+      #else
+        Serial.print(F(OUT_BIN_SENDVAR_DATA));
+      #endif
       uint32_t total = 0;
       while( total < varLength ) {
         if ( total + usedPacketLen > varLength ) { usedPacketLen = (varLength - total); }
         memset( TMP_RAM, 0x00, usedPacketLen );
         recvNb = ti_recv( TMP_RAM, usedPacketLen );
-        debugDatas( TMP_RAM, usedPacketLen );
+        #if ASCII_OUTPUT
+          debugDatas( TMP_RAM, usedPacketLen );
+        #else
+          Serial.write( TMP_RAM, usedPacketLen );
+        #endif
         total += usedPacketLen;
       }
 
       ti_send( cACK, 4 );             // ACK datas -------- ( 0x88 instead of 0x89 for a ti92)
       recvNb = ti_recv( TMP_RAM, 4 ); // read EOT   certified on V200
       ti_send( cACK, 4 );             // ACK EOT   --------
+
+      #if ASCII_OUTPUT
+        if (!false) Serial.println(F("TiVarSend >> eof"));
+      #else
+        Serial.print(F(OUT_BIN_SENDVAR_EOF));
+      #endif
 
     } // end of VarSend2
     else
@@ -540,7 +575,7 @@ void loop() {
 //       L M 1 2 3 4 5  6  7  CHK CHK
 // 89 15 7 0 1 0 0 0 20 33 00 54 0 // Send {3}
 
-#if 1
+
     recvNb = ti_recv( recv, 4 );
     if ( recvNb != 0 ) {
       Serial.println(F("E:CBL/DT-HEAD"));
@@ -575,29 +610,14 @@ void loop() {
     msg[1] = kc < 256 ? (char)kc : 0xFF;
     msg[2] = kc >> 8; // beware often be 0x00
     msg[3] = kc % 256;
-    Serial.write(msg, 4);
 
-#endif
+    #if ASCII_OUTPUT
+      Serial.write(msg, 4);
+    #else
+      // CBL_SEND MSB-LSB
+      Serial.print(F(OUT_BIN_SENDCBL)); Serial.write( (uint8_t)(kc >> 8) ); Serial.write( (uint8_t)(kc % 256) );
+    #endif
 
-#else
-    bool first20 = false;
-    bool last0 = false;
-    do {
-      recvNb = ti_recv( recv, 1 );
-      if ( recvNb != 0 ) { break; }
-
-      if ( !first20 && recv[0] == 0x20 ) {
-        first20 = true;
-      } else if ( first20 && recv[0] == 0x00 ) {
-        first20 = false;
-        last0 = true;
-      } else if ( cblSend && first20 && !last0) {
-        // Serial.print( recv[0], HEX ); Serial.print( F(" ") );
-        Serial.print( (char)recv[0] );
-      }
- 
-    } while(true);
-Serial.println("");
 #endif
 
       CBL_ACK();
