@@ -162,10 +162,11 @@ void dummyMode() {
 
         while ( Serial.available() > 0 ) {
           int t = min( MAX_READ_LEN, Serial.available() ); // read only what's available 
-          int ch = serPort.readBytes( screen, t );
-          if ( ch <= 0 ) { break; }
+          int read = serPort.readBytes( screen, t );
+          if ( read <= 0 ) { break; }
 
-          ti_send( screen, ch );
+          ti_send( screen, read );
+          delay( 5 * read ); // wait for XtsTerm ASM Ti
         }
 
         recvNb = ti_recv(recv, 2);

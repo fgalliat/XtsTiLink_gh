@@ -75,7 +75,8 @@
 char chs[2] = {0x00, 0x00};
 
 
-#define byteBuffLen 128
+// #define byteBuffLen 128
+#define byteBuffLen 32
 volatile char bytes[byteBuffLen+1];
 
 volatile bool textDirty = false;
@@ -423,9 +424,9 @@ void dispOneChar(char ch) {
 // Main Function
 void _main(void)
 {
-  clrscr ();
-	printf("Hello World !");
-	ngetchx (); // WAITs a char
+  // clrscr ();
+	// printf("Hello World !");
+	// ngetchx (); // WAITs a char
 	
 	// seems that global delaracted variables
 	// doesn't reset @ PRGM re-launch.....
@@ -447,9 +448,24 @@ void _main(void)
 	    // ,1 -> byte
   	    // ,2 -> short ...
 	 	// unsigned short LIO_RecvData (void *dest, unsigned long size, unsigned long WaitDelay);
-	 		
+	 	
+	 	/*	
  		if ( LIO_RecvData(inputBuf,1,1) == 0 ) {
 			dispOneChar( inputBuf[0] );
+			textDirty = true;
+ 		} else if (textDirty) { // prevent from tty_cursY() division
+ 			render( tty_cursY() );
+ 		}
+ 		*/
+ 		// new way
+ 		memset( inputBuf, 0x00, byteBuffLen+1 );
+ 		LIO_RecvData(inputBuf, byteBuffLen, 1); // don't care about result
+ 		if ( inputBuf[0] != 0 ) {
+			int i; 			
+ 			for(i = 0; i < byteBuffLen; i++) {
+ 				if (inputBuf[i] == 0x00) { break; }
+ 				dispOneChar( inputBuf[i] );
+ 			}
 			textDirty = true;
  		} else if (textDirty) { // prevent from tty_cursY() division
  			render( tty_cursY() );
