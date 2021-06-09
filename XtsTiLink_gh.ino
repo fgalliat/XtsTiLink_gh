@@ -166,7 +166,7 @@ void dummyMode() {
           if ( read <= 0 ) { break; }
 
           ti_send( screen, read );
-          delay( 5 * read ); // wait for XtsTerm ASM Ti
+          delay( 15 * read ); // wait for XtsTerm ASM Ti
         }
 
         recvNb = ti_recv(recv, 2);
