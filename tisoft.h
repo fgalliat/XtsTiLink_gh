@@ -316,79 +316,89 @@ if ( fromSerial ) {
   fileName[nl] = 0x00;
 
   while( serPort.available() == 0 ) {}
-  bool mode92p = serPort.read() == 1; // else ASM
+  // bool mode92p = serPort.read() == 1; // else ASM
+  fileType = serPort.read(); // no more 0 or 1
+
+  // compatibility w/ tool/sender
+  if ( fileType == 0x01 ) {
+    fileType = FTYPE_BAS;
+  } else if ( fileType == 0x00 ) {
+    fileType = FTYPE_ASM;
+  } 
+
+
   while( serPort.available() == 0 ) {}
   int autoLaunchMode = serPort.read();
   autolaunch = autoLaunchMode > 0;
   autolaunchNoEnter = autoLaunchMode == 2;
 
-  if ( mode92p ) { fileType = FTYPE_BAS; }
-  else { fileType = FTYPE_ASM; }
+  // if ( mode92p ) { fileType = FTYPE_BAS; }
+  // else { fileType = FTYPE_ASM; }
 
   sendingMode = SEND_MODE_SERIAL;
   initDatas = NULL;
 
 }
-else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
-  initDatas = (char*)"ABC";
-  initDatasLen = strlen( initDatas );
-} else if ( fileType == FTYPE_TXT ) { // Not Yet finisihed
-  initDatas = (char*)"?ABC?";
-  initDatasLen = strlen( initDatas );
-  // seee : http://merthsoft.com/linkguide/ti92/vars.html
-  // for text lines format
-  initDatas[0] = 0x20;
-  initDatas[initDatasLen-1] = 0x00;
-} else if ( fileType == FTYPE_BAS || fileType == FTYPE_ASM ) {
-  // initDatas = (char*)"_txt2()\nPrgm\nDisp \"123\"\nEndprgm?";
-  // prgm name cant start by '_'
-  fileName = (char*)"main\\bbb";
+// else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
+//   initDatas = (char*)"ABC";
+//   initDatasLen = strlen( initDatas );
+// } else if ( fileType == FTYPE_TXT ) { // Not Yet finisihed
+//   initDatas = (char*)"?ABC?";
+//   initDatasLen = strlen( initDatas );
+//   // seee : http://merthsoft.com/linkguide/ti92/vars.html
+//   // for text lines format
+//   initDatas[0] = 0x20;
+//   initDatas[initDatasLen-1] = 0x00;
+// } else if ( fileType == FTYPE_BAS || fileType == FTYPE_ASM ) {
+//   // initDatas = (char*)"_txt2()\nPrgm\nDisp \"123\"\nEndprgm?";
+//   // prgm name cant start by '_'
+//   fileName = (char*)"main\\bbb";
 
-  #if MODE_92P_BAS
-  fileName = (char*)"main\\keyb";
-  #endif
+//   #if MODE_92P_BAS
+//   fileName = (char*)"main\\keyb";
+//   #endif
 
-  if ( fileType == FTYPE_ASM ) {
-    fileName = (char*)"main\\tetris";
-  }
+//   if ( fileType == FTYPE_ASM ) {
+//     fileName = (char*)"main\\tetris";
+//   }
 
-  int i=0;
-  for (int k = 0; k < VAR_FILE_SIZE_OFFSET; k++) { // head
-    pgm_read_byte_near(FILE_CONTENT + i);
-    i++;
-  }
+//   int i=0;
+//   for (int k = 0; k < VAR_FILE_SIZE_OFFSET; k++) { // head
+//     pgm_read_byte_near(FILE_CONTENT + i);
+//     i++;
+//   }
 
-  int d0=0,d1=0;
-  d0 = pgm_read_byte_near(FILE_CONTENT + i++);
-  d1 = pgm_read_byte_near(FILE_CONTENT + i++);
+//   int d0=0,d1=0;
+//   d0 = pgm_read_byte_near(FILE_CONTENT + i++);
+//   d1 = pgm_read_byte_near(FILE_CONTENT + i++);
 
-  int rlen = (d0*256)+d1;
-  #if MODE_92P_ASM
-  outprint("Var len = "); outprint(rlen); outprint("\n");
-  #endif
-  initDatasLen = rlen; // up to 'DC'
+//   int rlen = (d0*256)+d1;
+//   #if MODE_92P_ASM
+//   outprint("Var len = "); outprint(rlen); outprint("\n");
+//   #endif
+//   initDatasLen = rlen; // up to 'DC'
 
-  if ( true ) {
-    sendingMode = SEND_MODE_FLASH;
-    initDatas = NULL;
-  } else {
-    sendingMode = SEND_MODE_RAM;
+//   if ( true ) {
+//     sendingMode = SEND_MODE_FLASH;
+//     initDatas = NULL;
+//   } else {
+//     sendingMode = SEND_MODE_RAM;
 
-    initDatas = (char*)malloc( initDatasLen );
-    memset(initDatas, 0x00, initDatasLen );
+//     initDatas = (char*)malloc( initDatasLen );
+//     memset(initDatas, 0x00, initDatasLen );
 
-    for (int k = 0; k < initDatasLen; k++) { // var content
-      char myChar = pgm_read_byte_near(FILE_CONTENT + i);
-      initDatas[k] = myChar;
-      i++;
-    }
+//     for (int k = 0; k < initDatasLen; k++) { // var content
+//       char myChar = pgm_read_byte_near(FILE_CONTENT + i);
+//       initDatas[k] = myChar;
+//       i++;
+//     }
 
-    // if 0x01 => PRGM is archived 
-    initDatas[ initDatasLen-3 ] = archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO;
+//     // if 0x01 => PRGM is archived 
+//     initDatas[ initDatasLen-3 ] = archived ? VAR_ARCHIVED_YES : VAR_ARCHIVED_NO;
 
-    // 2 bytes remaining for CHKSUM
-  }
-}
+//     // 2 bytes remaining for CHKSUM
+//   }
+// }
 
 // really start sending
 
@@ -403,57 +413,63 @@ else if ( fileType == FTYPE_EXP || fileType == FTYPE_STR ) {
   // max can occurs
   char data[ 20 + (sendingMode == SEND_MODE_RAM ? initDatasLen : 0 ) ];
   int dataLen = 0;
-  if (fileType == FTYPE_EXP) {
-			data[0] = (char) (initDatasLen / 256);
-			data[1] = (char) (initDatasLen % 256);
-			for (i = 0; i < initDatasLen; i++) {
-				data[2 + i] = initDatas[i];
-			}
-      dataLen = 2 + initDatasLen;
+#if 0
+  // if (fileType == FTYPE_EXP) {
+	// 		data[0] = (char) (initDatasLen / 256);
+	// 		data[1] = (char) (initDatasLen % 256);
+	// 		for (i = 0; i < initDatasLen; i++) {
+	// 			data[2 + i] = initDatas[i];
+	// 		}
+  //     dataLen = 2 + initDatasLen;
 
-  } else if (fileType == FTYPE_STR) {
-			data[0] = (char) ((initDatasLen + 3) / 256); // -2 instead of +3 ???? => http://merthsoft.com/linkguide/ti92/vars.html
-			data[1] = (char) ((initDatasLen + 3) % 256);
-			data[2] = (char) 0;
-			for (i = 0; i < initDatasLen; i++) {
-				data[3 + i] = initDatas[i];
-			}
-			data[3 + initDatasLen] = 0;
-			data[4 + initDatasLen] = (char) 0x2D;
+  // } else if (fileType == FTYPE_STR) {
+	// 		data[0] = (char) ((initDatasLen + 3) / 256); // -2 instead of +3 ???? => http://merthsoft.com/linkguide/ti92/vars.html
+	// 		data[1] = (char) ((initDatasLen + 3) % 256);
+	// 		data[2] = (char) 0;
+	// 		for (i = 0; i < initDatasLen; i++) {
+	// 			data[3 + i] = initDatas[i];
+	// 		}
+	// 		data[3 + initDatasLen] = 0;
+	// 		data[4 + initDatasLen] = (char) 0x2D;
       
-      dataLen = 2 + 1 + initDatasLen + 1 + 1;
-  } else if (fileType == FTYPE_TXT) {
-			data[0] = (char) ((initDatasLen + 3) / 256);
-			data[1] = (char) ((initDatasLen + 3) % 256);
-			data[2] = (char) 0; // CH \__ last opening caret position
-      data[3] = (char) 1; // CL /
+  //     dataLen = 2 + 1 + initDatasLen + 1 + 1;
+  // } else if (fileType == FTYPE_TXT) {
+	// 		data[0] = (char) ((initDatasLen + 3) / 256);
+	// 		data[1] = (char) ((initDatasLen + 3) % 256);
+	// 		data[2] = (char) 0; // CH \__ last opening caret position
+  //     data[3] = (char) 1; // CL /
 
-      // ===================== each lines ================
-      // 1st byte : Line type: 0Ch=page break, 20h=normal, 43h=Command, 50h=PrintObj
-      // terminated by a 0x0D as '\n'
-      // whole file by a 0x00
-			for (i = 0; i < initDatasLen; i++) {
-				data[4 + i] = initDatas[i];
-			}
-      // ====================================
+  //     // ===================== each lines ================
+  //     // 1st byte : Line type: 0Ch=page break, 20h=normal, 43h=Command, 50h=PrintObj
+  //     // terminated by a 0x0D as '\n'
+  //     // whole file by a 0x00
+	// 		for (i = 0; i < initDatasLen; i++) {
+	// 			data[4 + i] = initDatas[i];
+	// 		}
+  //     // ====================================
 
-			data[4 + initDatasLen] = (char) 0xE0; // end of Text Var
-      dataLen = 2 + 2 + initDatasLen + 1;
+	// 		data[4 + initDatasLen] = (char) 0xE0; // end of Text Var
+  //     dataLen = 2 + 2 + initDatasLen + 1;
 
-  } else if (fileType == FTYPE_BAS || fileType == FTYPE_ASM) {
-      // FROM a .92P content
-			data[0] = (unsigned char) ((initDatasLen + 0) / 256); // -2 instead of +3 ???? => http://merthsoft.com/linkguide/ti92/vars.html
-			data[1] = (unsigned char) ((initDatasLen + 0) % 256);
-      if ( initDatas != NULL ) {
-        for (i = 0; i < initDatasLen; i++) {
-          data[2 + i] = initDatas[i];
-        }
-      }
-      dataLen = 2 + initDatasLen;
-  } else {
-      outprint(F("E:Oups ftype"));
-  }
-
+  // } else if (fileType == FTYPE_BAS || fileType == FTYPE_ASM) {
+  //     // FROM a .92P content
+	// 		data[0] = (unsigned char) ((initDatasLen + 0) / 256); // -2 instead of +3 ???? => http://merthsoft.com/linkguide/ti92/vars.html
+	// 		data[1] = (unsigned char) ((initDatasLen + 0) % 256);
+  //     if ( initDatas != NULL ) {
+  //       for (i = 0; i < initDatasLen; i++) {
+  //         data[2 + i] = initDatas[i];
+  //       }
+  //     }
+  //     dataLen = 2 + initDatasLen;
+  // } else {
+  //     outprint(F("E:Oups ftype"));
+  // }
+#else
+ // when the real fileType is given -- Serial Mode
+ data[0] = (unsigned char) ((initDatasLen + 0) / 256); // -2 instead of +3 ???? => http://merthsoft.com/linkguide/ti92/vars.html
+ data[1] = (unsigned char) ((initDatasLen + 0) % 256);
+ dataLen = 2 + initDatasLen;
+#endif
    
   bool silent = true;
  

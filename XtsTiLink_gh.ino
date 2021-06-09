@@ -454,7 +454,7 @@ void loop() {
         if (!false) Serial.println(F("Send for TiVarSend 2nd step"));
       #endif
       recvNb = ti_recv( sendHead, head );
-      // -> 8 0 0 0 = could be the var size LSB -> MSB (A + (B * 256) + (C * 65536) + ... )
+      // -> 8 0 0 0 = could be the var size LSB -> MSB (A + (B * 256) + (C * 65536) + ... ) WITH +2 for CHK
       // C = var Type : String
       // 1 = name len => 
       // 64 => 'd' : name
@@ -503,8 +503,13 @@ void loop() {
         debugDatas( TMP_RAM, prePacketLen );
       #endif
 
+      if ( recvNb != 0 ) {
+        Serial.println( F("E:Failed to read from Ti") );
+      }
+
       // CHK is a part of Var ? -> YES
-      int usedPacketLen = min( __SCREEN_SEG_MEM, varLength ); // do not overflow MCU's RAM for now ....
+      // int usedPacketLen = min( __SCREEN_SEG_MEM, varLength ); // do not overflow MCU's RAM for now ....
+      int usedPacketLen = min( 64, varLength ); // Hey, we have to send it via UART HERE ....
 
       #if ASCII_OUTPUT
         if (!false) Serial.println(F("TiVarSend >> data : "));
@@ -516,10 +521,18 @@ void loop() {
         if ( total + usedPacketLen > varLength ) { usedPacketLen = (varLength - total); }
         memset( TMP_RAM, 0x00, usedPacketLen );
         recvNb = ti_recv( TMP_RAM, usedPacketLen );
+
+        if ( recvNb != 0 ) {
+          Serial.println( F("E:Failed to read from Ti") );
+          break;
+        }
+
         #if ASCII_OUTPUT
           debugDatas( TMP_RAM, usedPacketLen );
         #else
           Serial.write( TMP_RAM, usedPacketLen );
+          while( Serial.available() == 0 ) { delay(2); }
+          Serial.read(); // waits an handshake
         #endif
         total += usedPacketLen;
       }
@@ -711,6 +724,7 @@ void loop() {
           } else if (serPort.peek() == 'P') { // send Var from Serial (silent mode)
             serPort.read();
             sendTiFile(false, true);
+            delay(500);
             reboot();
             return;
           } else if (serPort.peek() == 'p') { // receive TiVar to Serial (silent mode)
