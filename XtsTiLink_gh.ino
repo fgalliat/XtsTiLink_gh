@@ -144,8 +144,9 @@ void dummyMode() {
 
   ti_resetLines();
 
-  // see : https://internetofhomethings.com/homethings/?p=927
+      // see : https://internetofhomethings.com/homethings/?p=927
       const int MAX_READ_LEN = 32;
+      int bytesSentToTi = 0;
 
       memset(screen, 0x00, MAX_READ_LEN+1);
       int fullPacketLen = 0;
@@ -161,12 +162,42 @@ void dummyMode() {
       while(true) {
 
         while ( Serial.available() > 0 ) {
-          int t = min( MAX_READ_LEN, Serial.available() ); // read only what's available 
-          int read = serPort.readBytes( screen, t );
-          if ( read <= 0 ) { break; }
+          // int t = min( MAX_READ_LEN, Serial.available() ); // read only what's available 
+          // int read = serPort.readBytes( screen, t );
+          // if ( read <= 0 ) { break; }
+          // ti_send( screen, read );
+          // delay( 15 * read ); // wait for XtsTerm ASM Ti
 
+          int avail = Serial.available();
+          int max = min( MAX_READ_LEN, avail ); // read only what's available 
+
+          if ( bytesSentToTi + max > MAX_READ_LEN ) {
+            max = MAX_READ_LEN - bytesSentToTi;
+          }
+
+          int read = serPort.readBytes( screen, max );
+          if ( read <= 0 ) { break; }
           ti_send( screen, read );
-          delay( 15 * read ); // wait for XtsTerm ASM Ti
+
+          bytesSentToTi += read;
+          // internal HandShake System -- BEWARE : no more compatible w/ (devel4ti/test_gcc4ti_1/main.c)
+          if ( bytesSentToTi == MAX_READ_LEN ) {
+            int hndTimeout = 0;
+            recv[0] = 0x00;
+            while( ti_recv(recv, 1) != 0 && (char)recv[0] != 'h' ) { 
+              delay(2);
+              hndTimeout++;
+              if ( hndTimeout > 2000 ) { break; } // prevent from inf. loop
+            } // waits for Ti-handshake
+            // if ( (char)recv[0] != 'h' ) {
+            //   // SIGNAL AN ERROR ????
+            //   // break; 
+            // }
+            chs[0] = 'H';
+            ti_send( chs, 1 ); // waits for Pc-Handshake
+            bytesSentToTi = 0;
+          }
+
         }
 
         recvNb = ti_recv(recv, 2);

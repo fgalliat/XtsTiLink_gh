@@ -442,6 +442,9 @@ void _main(void)
 	LIO_SendData(beginSession,2+6+1);
 	
 	char inputBuf[byteBuffLen+1];
+	int bytesRecvByTi = 0;
+	int recvTimeOut = 0;
+
 	
 	while( true ) {
 		
@@ -465,6 +468,26 @@ void _main(void)
  			for(i = 0; i < byteBuffLen; i++) {
  				if (inputBuf[i] == 0x00) { break; }
  				dispOneChar( inputBuf[i] );
+
+				bytesRecvByTi++;	// new Handshake System
+				if ( bytesRecvByTi == byteBuffLen ) {
+					char chs[] = { 'h' };
+					LIO_SendData(chs,1);
+					recvTimeOut = 0;
+					while ( LIO_RecvData(chs,1,1) != 0 ) {
+						// sleep ...
+						recvTimeOut ++;
+						if ( recvTimeOut >= 5 ) { break; } // x * 1/20s prevent from infinite loop
+					}
+					if ( chs[0] != 'H' ) {
+						// SIGNAL AN HANDSHAKE ERROR ??
+						dispOneChar( '!' );
+						dispOneChar( 'H' );
+						dispOneChar( '!' );
+					}
+
+					bytesRecvByTi = 0;
+				}
  			}
 			textDirty = true;
  		} else if (textDirty) { // prevent from tty_cursY() division
